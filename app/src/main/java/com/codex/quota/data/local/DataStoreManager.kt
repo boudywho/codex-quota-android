@@ -5,7 +5,6 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -26,11 +25,12 @@ class DataStoreManager(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val WIDGET_THEME_MODE = stringPreferencesKey("widget_theme_mode")
+        val BACKGROUND_SYNC_ENABLED = booleanPreferencesKey("background_sync_enabled")
         val REFRESH_INTERVAL = longPreferencesKey("refresh_interval_minutes")
         val REFRESH_ON_APP_OPEN = booleanPreferencesKey("refresh_on_app_open")
         val SIGNED_OUT_NOTIFICATIONS = booleanPreferencesKey("signed_out_notifications_enabled")
         val QUOTA_ALERTS_ENABLED = booleanPreferencesKey("quota_alerts_enabled")
-        val QUOTA_ALERT_THRESHOLD = intPreferencesKey("quota_alert_threshold_percent")
+        val QUOTA_ALERT_THRESHOLDS = stringSetPreferencesKey("quota_alert_thresholds_set")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val DISMISSED_RENEWAL_BANNERS = stringSetPreferencesKey("dismissed_renewal_banners")
     }
@@ -48,15 +48,19 @@ class DataStoreManager(private val context: Context) {
 
         val refreshIntervalMinutes = prefs[PreferencesKeys.REFRESH_INTERVAL] ?: 30L
 
+        val thresholdStrings = prefs[PreferencesKeys.QUOTA_ALERT_THRESHOLDS] ?: setOf("5", "10", "25")
+        val thresholds = thresholdStrings.mapNotNull { it.toIntOrNull() }.toSet().ifEmpty { setOf(5, 10, 25) }
+
         UserPreferences(
             themeMode = themeMode,
             dynamicColor = prefs[PreferencesKeys.DYNAMIC_COLOR] ?: true,
             widgetThemeMode = widgetThemeMode,
+            backgroundSyncEnabled = prefs[PreferencesKeys.BACKGROUND_SYNC_ENABLED] ?: true,
             refreshInterval = RefreshIntervalMinutes.fromMinutes(refreshIntervalMinutes),
             refreshOnAppOpen = prefs[PreferencesKeys.REFRESH_ON_APP_OPEN] ?: true,
             signedOutNotificationsEnabled = prefs[PreferencesKeys.SIGNED_OUT_NOTIFICATIONS] ?: true,
             quotaAlertsEnabled = prefs[PreferencesKeys.QUOTA_ALERTS_ENABLED] ?: true,
-            quotaAlertThresholdPercent = prefs[PreferencesKeys.QUOTA_ALERT_THRESHOLD] ?: 10,
+            quotaAlertThresholds = thresholds,
             hasCompletedOnboarding = prefs[PreferencesKeys.ONBOARDING_COMPLETED] ?: false,
             dismissedRenewalBannerAccountIds = prefs[PreferencesKeys.DISMISSED_RENEWAL_BANNERS] ?: emptySet()
         )
@@ -79,6 +83,12 @@ class DataStoreManager(private val context: Context) {
     suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {
         context.dataStore.edit { prefs ->
             prefs[PreferencesKeys.WIDGET_THEME_MODE] = mode.name
+        }
+    }
+
+    suspend fun setBackgroundSyncEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferencesKeys.BACKGROUND_SYNC_ENABLED] = enabled
         }
     }
 
@@ -106,9 +116,26 @@ class DataStoreManager(private val context: Context) {
         }
     }
 
-    suspend fun setQuotaAlertThresholdPercent(threshold: Int) {
+    suspend fun setQuotaAlertThresholds(thresholds: Set<Int>) {
         context.dataStore.edit { prefs ->
-            prefs[PreferencesKeys.QUOTA_ALERT_THRESHOLD] = threshold
+            prefs[PreferencesKeys.QUOTA_ALERT_THRESHOLDS] = thresholds.map { it.toString() }.toSet()
+        }
+    }
+
+    suspend fun toggleQuotaAlertThreshold(threshold: Int) {
+        context.dataStore.edit { prefs ->
+            val current = (prefs[PreferencesKeys.QUOTA_ALERT_THRESHOLDS] ?: setOf("5", "10", "25"))
+                .mapNotNull { it.toIntOrNull() }
+                .toMutableSet()
+
+            if (current.contains(threshold)) {
+                if (current.size > 1) {
+                    current.remove(threshold)
+                }
+            } else {
+                current.add(threshold)
+            }
+            prefs[PreferencesKeys.QUOTA_ALERT_THRESHOLDS] = current.map { it.toString() }.toSet()
         }
     }
 

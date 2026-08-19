@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,6 +38,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,6 +74,7 @@ fun SettingsScreen(
 ) {
     val preferences by viewModel.preferencesState.collectAsState()
     val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
     var showClearDataDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -92,6 +95,16 @@ fun SettingsScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shape = RoundedCornerShape(16.dp)
+                )
+            }
+        },
         topBar = {
             TopAppBar(title = { Text("Settings", fontWeight = FontWeight.Bold) })
         }
@@ -164,25 +177,47 @@ fun SettingsScreen(
 
             // Sync Section
             SettingsSection(title = "Background Synchronization", icon = Icons.Default.Sync) {
-                Text("Refresh Frequency", style = MaterialTheme.typography.bodyMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    listOf(
-                        RefreshIntervalMinutes.MINUTES_15,
-                        RefreshIntervalMinutes.MINUTES_30,
-                        RefreshIntervalMinutes.HOURS_1,
-                        RefreshIntervalMinutes.HOURS_3
-                    ).forEach { interval ->
-                        FilterChip(
-                            selected = preferences.refreshInterval == interval,
-                            onClick = { viewModel.setRefreshInterval(context, interval) },
-                            label = { Text(interval.label, fontSize = 11.sp) },
-                            modifier = Modifier.weight(1f)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Periodic Background Sync", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            if (preferences.backgroundSyncEnabled) "App wakes periodically in background to refresh quotas" else "Disabled — app only refreshes when opened",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    Switch(
+                        checked = preferences.backgroundSyncEnabled,
+                        onCheckedChange = { viewModel.setBackgroundSyncEnabled(context, it) }
+                    )
+                }
+
+                if (preferences.backgroundSyncEnabled) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text("Refresh Frequency", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf(
+                            RefreshIntervalMinutes.MINUTES_15,
+                            RefreshIntervalMinutes.MINUTES_30,
+                            RefreshIntervalMinutes.HOURS_1,
+                            RefreshIntervalMinutes.HOURS_3
+                        ).forEach { interval ->
+                            FilterChip(
+                                selected = preferences.refreshInterval == interval,
+                                onClick = { viewModel.setRefreshInterval(context, interval) },
+                                label = { Text(interval.label, fontSize = 12.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
 
@@ -259,7 +294,7 @@ fun SettingsScreen(
                 if (preferences.quotaAlertsEnabled) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        "Alert Threshold (Remaining Quota)",
+                        "Alert Thresholds (Toggle Multi-Select)",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -269,10 +304,11 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         listOf(5, 10, 25).forEach { threshold ->
+                            val isSelected = preferences.quotaAlertThresholds.contains(threshold)
                             FilterChip(
-                                selected = preferences.quotaAlertThresholdPercent == threshold,
-                                onClick = { viewModel.setQuotaAlertThreshold(threshold) },
-                                label = { Text("≤ $threshold% limit") },
+                                selected = isSelected,
+                                onClick = { viewModel.toggleQuotaAlertThreshold(threshold) },
+                                label = { Text("≤ $threshold%") },
                                 modifier = Modifier.weight(1f)
                             )
                         }

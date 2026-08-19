@@ -43,14 +43,17 @@ class QuotaRefreshWorker(
             }
         }
 
-        // Check for low quota alerts
+        // Check for low quota alerts against multi-select thresholds
         if (preferences.quotaAlertsEnabled) {
-            val threshold = preferences.quotaAlertThresholdPercent
+            val thresholds = preferences.quotaAlertThresholds
             for (item in currentAccounts) {
                 val usage = item.usage ?: continue
                 val remaining = usage.remainingPercent
-                if (remaining != null && remaining <= threshold && usage.status == AuthStatus.AUTHENTICATED) {
-                    quotaAlertNotificationManager.showLowQuotaAlert(item.account, usage, threshold)
+                if (remaining != null && usage.status == AuthStatus.AUTHENTICATED) {
+                    val matchedThreshold = thresholds.filter { remaining <= it }.minOrNull()
+                    if (matchedThreshold != null) {
+                        quotaAlertNotificationManager.showLowQuotaAlert(item.account, usage, matchedThreshold)
+                    }
                 }
             }
         }

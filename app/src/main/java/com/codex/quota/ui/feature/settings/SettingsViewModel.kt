@@ -47,10 +47,24 @@ class SettingsViewModel(
         }
     }
 
+    fun setBackgroundSyncEnabled(context: Context, enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setBackgroundSyncEnabled(enabled)
+            if (enabled) {
+                val currentInterval = preferencesState.value.refreshInterval.minutes
+                WorkScheduler.schedulePeriodicRefresh(context, currentInterval)
+            } else {
+                WorkScheduler.cancelPeriodicRefresh(context)
+            }
+        }
+    }
+
     fun setRefreshInterval(context: Context, interval: RefreshIntervalMinutes) {
         viewModelScope.launch {
             preferencesRepository.setRefreshInterval(interval)
-            WorkScheduler.schedulePeriodicRefresh(context, interval.minutes)
+            if (preferencesState.value.backgroundSyncEnabled) {
+                WorkScheduler.schedulePeriodicRefresh(context, interval.minutes)
+            }
         }
     }
 
@@ -72,9 +86,9 @@ class SettingsViewModel(
         }
     }
 
-    fun setQuotaAlertThreshold(threshold: Int) {
+    fun toggleQuotaAlertThreshold(threshold: Int) {
         viewModelScope.launch {
-            preferencesRepository.setQuotaAlertThresholdPercent(threshold)
+            preferencesRepository.toggleQuotaAlertThreshold(threshold)
         }
     }
 

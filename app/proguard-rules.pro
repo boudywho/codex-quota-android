@@ -1,7 +1,13 @@
 # ProGuard rules for Codex Quota
 
-# Keep Kotlinx serialization models
+# Keep Kotlinx serialization models & DTOs
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+-keepclassmembers class * {
+    @kotlinx.serialization.SerialName <fields>;
+    @kotlinx.serialization.Serializable <fields>;
+}
+-keep class com.codex.quota.data.remote.dto.** { *; }
+-keep class com.codex.quota.domain.model.** { *; }
 
 # Keep Room generated classes
 -keep class androidx.room.** { *; }

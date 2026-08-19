@@ -18,11 +18,11 @@ enum class WidgetThemeMode(val displayName: String) {
 }
 
 enum class RefreshIntervalMinutes(val minutes: Long, val label: String) {
-    MINUTES_15(15, "15 minutes"),
-    MINUTES_30(30, "30 minutes"),
-    HOURS_1(60, "1 hour"),
-    HOURS_3(180, "3 hours"),
-    HOURS_6(360, "6 hours");
+    MINUTES_15(15, "15 min"),
+    MINUTES_30(30, "30 min"),
+    HOURS_1(60, "1 hr"),
+    HOURS_3(180, "3 hr"),
+    HOURS_6(360, "6 hr");
 
     companion object {
         fun fromMinutes(minutes: Long): RefreshIntervalMinutes {
@@ -35,11 +35,12 @@ data class UserPreferences(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.DARK_OBSIDIAN,
+    val backgroundSyncEnabled: Boolean = true,
     val refreshInterval: RefreshIntervalMinutes = RefreshIntervalMinutes.MINUTES_30,
     val refreshOnAppOpen: Boolean = true,
     val signedOutNotificationsEnabled: Boolean = true,
     val quotaAlertsEnabled: Boolean = true,
-    val quotaAlertThresholdPercent: Int = 10,
+    val quotaAlertThresholds: Set<Int> = setOf(5, 10, 25),
     val hasCompletedOnboarding: Boolean = false,
     val dismissedRenewalBannerAccountIds: Set<String> = emptySet()
 )

@@ -19,13 +19,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Code
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.SystemUpdate
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,7 +31,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -41,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -120,37 +118,10 @@ fun AboutScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Button(
-                            onClick = { openUrl("https://github.com/boudywho/codex-quota-android") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.Code, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("GitHub Repo")
-                        }
-
-                        OutlinedButton(
-                            onClick = { openUrl("https://github.com/boudywho/codex-quota-android/releases") },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(imageVector = Icons.Default.SystemUpdate, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Releases")
-                        }
-                    }
                 }
             }
 
-            // Quick Links Card
+            // Consolidated Community & Links Card (No duplicate buttons)
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -161,13 +132,14 @@ fun AboutScreen(
             ) {
                 Column(modifier = Modifier.padding(18.dp)) {
                     Text(
-                        text = "Community & Support",
+                        text = "Open Source & Resources",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     LinkRow(
-                        title = "Source Code Repository",
+                        icon = Icons.Default.Code,
+                        title = "GitHub Repository",
                         subtitle = "boudywho/codex-quota-android",
                         onClick = { openUrl("https://github.com/boudywho/codex-quota-android") }
                     )
@@ -178,9 +150,10 @@ fun AboutScreen(
                     )
 
                     LinkRow(
-                        title = "Report Issues & Feature Requests",
-                        subtitle = "Submit feedback on GitHub Issues",
-                        onClick = { openUrl("https://github.com/boudywho/codex-quota-android/issues") }
+                        icon = Icons.Default.NewReleases,
+                        title = "Releases & Changelog",
+                        subtitle = "View version history, updates, and APK downloads",
+                        onClick = { openUrl("https://github.com/boudywho/codex-quota-android/releases") }
                     )
 
                     HorizontalDivider(
@@ -189,9 +162,10 @@ fun AboutScreen(
                     )
 
                     LinkRow(
-                        title = "Release Notes & Changelog",
-                        subtitle = "View version history and downloads",
-                        onClick = { openUrl("https://github.com/boudywho/codex-quota-android/releases") }
+                        icon = Icons.Default.BugReport,
+                        title = "Report Issues & Requests",
+                        subtitle = "Submit bugs or feature suggestions on GitHub",
+                        onClick = { openUrl("https://github.com/boudywho/codex-quota-android/issues") }
                     )
                 }
             }
@@ -215,7 +189,7 @@ fun AboutScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Privacy & Security Guarantee",
+                            text = "Privacy & Security Architecture",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -260,6 +234,7 @@ fun AboutScreen(
 
 @Composable
 private fun LinkRow(
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit
@@ -272,6 +247,13 @@ private fun LinkRow(
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,

@@ -30,6 +30,10 @@ class UserPreferencesRepositoryImpl(
         dataStoreManager.setWidgetThemeMode(mode)
     }
 
+    override suspend fun setBackgroundSyncEnabled(enabled: Boolean) {
+        dataStoreManager.setBackgroundSyncEnabled(enabled)
+    }
+
     override suspend fun setRefreshInterval(interval: RefreshIntervalMinutes) {
         dataStoreManager.setRefreshInterval(interval)
     }
@@ -46,8 +50,12 @@ class UserPreferencesRepositoryImpl(
         dataStoreManager.setQuotaAlertsEnabled(enabled)
     }
 
-    override suspend fun setQuotaAlertThresholdPercent(threshold: Int) {
-        dataStoreManager.setQuotaAlertThresholdPercent(threshold)
+    override suspend fun setQuotaAlertThresholds(thresholds: Set<Int>) {
+        dataStoreManager.setQuotaAlertThresholds(thresholds)
+    }
+
+    override suspend fun toggleQuotaAlertThreshold(threshold: Int) {
+        dataStoreManager.toggleQuotaAlertThreshold(threshold)
     }
 
     override suspend fun setHasCompletedOnboarding(completed: Boolean) {

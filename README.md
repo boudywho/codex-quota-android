@@ -4,7 +4,7 @@
 
 **A modern, privacy-first Android client to monitor real-time OpenAI Codex and ChatGPT Plus/Team quotas, rate limits, and subscription renewal schedules across multiple accounts.**
 
-[![Release](https://img.shields.io/badge/Release-v1.1.2-10B981?style=for-the-badge&logo=github)](https://github.com/boudywho/codex-quota-android/releases)
+[![Release](https://img.shields.io/badge/Release-v1.1.3-10B981?style=for-the-badge&logo=github)](https://github.com/boudywho/codex-quota-android/releases)
 [![Android](https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20%26%20M3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)

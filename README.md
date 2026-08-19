@@ -1,114 +1,140 @@
-# Codex Quota Monitor
+<div align="center">
 
-**Codex Quota** is a native, modern Android application built for developers, team leads, and power users to monitor real-time token usage, request rate limits, and quota reset countdowns across multiple OpenAI Codex and developer accounts.
+# ⚡ Codex Quota Monitor for Android
+
+**A modern, privacy-first Android client to monitor real-time OpenAI Codex and ChatGPT Plus/Team quotas, rate limits, and subscription renewal schedules across multiple accounts.**
+
+[![Latest Release](https://img.shields.io/github/v/release/boudywho/codex-quota-android?style=for-the-badge&color=10B981&label=Release)](https://github.com/boudywho/codex-quota-android/releases)
+[![Android](https://img.shields.io/badge/Android-8.0%2B%20(API%2026%2B)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20%26%20M3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
+
+<br/>
+
+<p align="center">
+  <img src="docs/screenshots/dashboard_screen.png" width="30%" alt="Dashboard Overview" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/screenshots/account_detail_screen.png" width="30%" alt="Account Details & Limits" />
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="docs/screenshots/widget_preview.png" width="32%" alt="Home Screen Widget" />
+</p>
+
+</div>
 
 ---
 
-## Features
+## ✨ Features
 
-- **Multi-Account Management**: Add, name, color-code, reorder, and monitor unlimited OpenAI accounts (Personal Plus, Team, Enterprise, API Tier keys).
-- **Glanceable Real-Time Quotas**: Visual circular and linear gauges display remaining token percentage, request counts, and rolling window reset durations.
-- **Signed-Out Detection & Alerts**: Detects when tokens expire, are revoked, or require re-authentication, sending high-priority Android notifications with deep links to re-sign in.
-- **Low-Quota Threshold Warnings**: Configurable proactive alerts (5%, 10%, 25% remaining) to prevent sudden workflow interruptions.
-- **Android Home-Screen Widgets**: Built with Jetpack Glance supporting Small (Compact), Medium (Standard with progress bar), and Multi-Account home-screen widgets with Material You dynamic theming.
-- **Battery-Conscious Background Sync**: WorkManager integration with configurable periodic sync (15m, 30m, 1h, 3h, 6h), network constraint enforcement, and exponential retry backoff.
-- **Offline-First Resilience**: Cached snapshots remain visible offline with stale indicators and relative timestamps (`Updated 4m ago`).
-- **Hardware-Protected Security**: Android Keystore AES-256-GCM encryption with complete per-account credential isolation.
-- **Privacy By Default**: Zero analytics, zero third-party telemetry, no cloud relays, and credential exclusion from Android backups.
+### 🔄 Real-Time Quota & Rolling Limits
+- **Live Subscriber Rate Limits**: Directly queries OpenAI's real-time rate limit engines to display accurate `Used %` and `Remaining %` on active ChatGPT Plus, Team, and Enterprise accounts.
+- **Dynamic Reset Countdown**: Real-time timers showing the exact duration until rate limit windows roll over.
+- **Platform API Keys**: Tracks token-per-minute (TPM) and request-per-minute (RPM) limits with detailed metric meters.
+
+### 🔑 Seamless Device Code Authorization
+- **Official Codex Flow**: Sign in using standard OAuth device authorization (`https://auth.openai.com/codex/device`) with automatic PKCE exchange.
+- **Zero API Key Leakage**: No need to generate raw API secrets or manage complex tokens manually.
+
+### 📅 Subscription Expiration & Renewal Tracking
+- **Renewal Timers**: View exact renewal and expiry dates, billing cycles (monthly/yearly), and auto-renewal statuses.
+- **Account Metadata**: View account registration dates, linked emails, and workspace IDs.
+
+### 📱 Android Home-Screen Widgets
+- **Jetpack Glance**: Modern, responsive Material 3 home-screen widgets providing real-time quota gauges and reset timers directly on your launcher.
+
+### 🛡️ Enterprise-Grade Security & Privacy
+- **Hardware-Backed Keystore**: All credentials and tokens are encrypted on-device via **AES-256-GCM** backed by the Android Keystore system.
+- **Zero Telemetry**: Completely tracker-free with zero third-party analytics or remote logging.
+- **Direct HTTPS**: App communicates exclusively with OpenAI servers with no intermediate proxies.
 
 ---
 
-## Technical Stack & Architecture
+## 📥 Download & Installation
 
-- **Language**: Kotlin 2.0.21
-- **UI Framework**: Jetpack Compose with Material 3 (Dynamic Color / Material You support, Dark/Light modes, Edge-to-Edge)
-- **Architecture**: Clean Architecture with Unidirectional Data Flow (UDF)
-  - `domain`: Pure Kotlin entities, use cases, and repository interfaces
-  - `data`: Room Database (`AppDatabase`), DataStore Preferences, OkHttp client, Keystore security storage
-  - `worker`: WorkManager `QuotaRefreshWorker`
-  - `notifications`: Notification channels with deep link intents (`codexquota://account/{id}`)
-  - `widget`: Jetpack Glance AppWidgets
-- **Build System**: Gradle Kotlin DSL with Version Catalog (`gradle/libs.versions.toml`)
+Grab the latest APK directly from the GitHub Releases:
 
-```text
-com.codex.quota/
-├── auth/            # Auth status models and token resolver
+👉 **[Download Latest APK (GitHub Releases)](https://github.com/boudywho/codex-quota-android/releases/latest)**
+
+1. Download `codex-quota-vX.X.X.apk` onto your Android device.
+2. Open the file to install (allow "Install from Unknown Sources" if prompted).
+3. Launch **Codex Quotas** and tap `+` to add your first account!
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+Codex Quota is built according to official **Modern Android Architecture** and Clean Architecture guidelines:
+
+```
+app/
+├── auth/          # OAuth PKCE Device Code Flow & JWT Token Parsers
 ├── data/
-│   ├── local/       # Room database, DAOs, DataStore preferences
-│   ├── remote/      # OkHttp API client, rate-limit header parsing, Real & Mock data sources
-│   └── repository/  # Repository implementations
-├── domain/
-│   ├── model/       # CodexAccount, CodexUsage, AuthStatus, PlanType, RateLimitInfo
-│   ├── repository/  # Repository interfaces
-│   └── usecase/     # Use cases for sync, auth detection, CRUD
-├── notifications/   # SignedOutNotificationManager & QuotaAlertNotificationManager
-├── security/        # Android Keystore AES-256-GCM encryption
+│   ├── local/     # Room Database, Encrypted Keystore Storage, Preferences DataStore
+│   └── remote/    # OkHttp / Kotlinx Serialization, OpenAI Wham & Platform APIs
+├── domain/        # Use Cases, Repository Interfaces, Models & Enums
 ├── ui/
-│   ├── components/  # CircularQuotaGauge, LinearQuotaBar, StatusBadge, RelativeTimeText
-│   ├── feature/     # Dashboard, AccountDetail, AddAccount, Settings, Onboarding, About
-│   ├── navigation/  # Navigation host and deep link handling
-│   └── theme/       # Material 3 colors, typography, shapes, dynamic theme
-├── widget/          # Jetpack Glance Small, Medium, and Multi-Account widgets
-└── worker/          # WorkManager QuotaRefreshWorker & WorkScheduler
+│   ├── components/# Circular gauges, Progress bars, Metric cards
+│   ├── feature/   # Dashboard, Account Detail, Add Account, Settings, About
+│   ├── navigation/# Jetpack Compose Type-Safe Navigation
+│   └── theme/     # Material 3 Color Schemes, Typography & Shapes
+├── widget/        # Jetpack Glance Home Screen Widgets
+└── worker/        # AndroidX WorkManager for background synchronization & alerts
 ```
 
----
-
-## OpenAI & Codex Integration Details
-
-### Integration Transparency
-1. **Public Developer Platform APIs**:
-   - The application connects directly to official OpenAI Developer Platform endpoints (`https://api.openai.com/v1/models`).
-   - Every authenticated request inspects live HTTP response headers:
-     - `x-ratelimit-limit-requests` & `x-ratelimit-remaining-requests`
-     - `x-ratelimit-reset-requests`
-     - `x-ratelimit-limit-tokens` & `x-ratelimit-remaining-tokens`
-     - `x-ratelimit-reset-tokens`
-   - HTTP 401/403 responses cleanly trigger `AUTHENTICATION_REQUIRED` states and user notifications.
-   - HTTP 429 triggers `TEMPORARY_ERROR` / rate-limited state.
-
-2. **Consumer ChatGPT/Codex Quota API Limitation**:
-   - OpenAI does *not* offer a public OAuth2 authorization grant or REST API for personal ChatGPT Plus/Team consumer subscription rolling message quotas (e.g. 50 messages / 3 hours).
-   - In accordance with OpenAI Terms of Service and security requirements, this application does **not** scrape web dashboards, intercept passwords, or automate hidden browser sessions.
-   - The app provides a clean `CodexAccountDataSource` abstraction and a built-in **Demo Simulator** mode with realistic profiles (Personal Plus 78%, Work Team 31%, Enterprise 94%, Rate-Limited simulator, Expired Session simulator) allowing complete UI, widget, and notification testing.
+- **UI Framework**: Jetpack Compose with Material Design 3 and Dynamic Colors (Material You)
+- **Asynchronous Flow**: Kotlin Coroutines & `StateFlow`
+- **Dependency Inversion**: Factory-based ViewModels and Clean Repository Pattern
+- **Local Persistence**: Room SQLite + AndroidX Security EncryptedSharedPreferences (AES-256-GCM)
+- **Background Tasks**: AndroidX WorkManager periodic sync & system notifications
+- **Home Widgets**: Jetpack Glance AppWidget
 
 ---
 
-## Security & Privacy Policy
-
-- **No Passwords**: The app never collects or stores user passwords.
-- **Hardware-Backed Encryption**: All API keys are encrypted using AES-GCM-256 via the Android Keystore.
-- **Per-Account Isolation**: Each account's credentials are stored and resolved independently.
-- **Backup Exclusions**: Android cloud backups are configured in `data_extraction_rules.xml` to exclude private credential preferences.
-- **Zero Telemetry**: No analytics SDKs or tracking libraries are bundled.
-
----
-
-## Building and Testing
+## 🛠️ Building From Source
 
 ### Prerequisites
-- JDK 21
-- Android SDK 35 (Android 15) with Build Tools 35.0.0
+- JDK 17 or JDK 21
+- Android Studio Ladybug (2024.2.1+) or Gradle 8.11+
+- Android SDK Platform 35
 
-### Run Unit Tests
+### Clone & Build
 ```bash
+# Clone the repository
+git clone https://github.com/boudywho/codex-quota-android.git
+cd codex-quota-android
+
+# Run unit tests
 ./gradlew test
-```
 
-### Run Android Lint
-```bash
-./gradlew lint
-```
-
-### Build Debug APK
-```bash
+# Assemble Debug APK
 ./gradlew assembleDebug
+
+# Output APK location:
+# app/build/outputs/apk/debug/app-debug.apk
 ```
-The resulting debug APK is generated at:
-`app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 
-## Disclaimer
+## 🔒 Security & Privacy
 
-Codex Quota is an independent, open-source utility and is not affiliated with, maintained, authorized, sponsored, or endorsed by OpenAI, Inc. OpenAI, ChatGPT, and Codex are trademarks or registered trademarks of OpenAI, Inc.
+| Principle | Implementation |
+| :--- | :--- |
+| **Credential Storage** | Android Keystore Hardware-Backed AES-256-GCM |
+| **Network Security** | Direct TLS 1.3 HTTPS exclusively to `openai.com` / `chatgpt.com` |
+| **Data Collection** | **Zero**. No analytics, no crashlytics, no tracking cookies. |
+| **Cloud Backups** | Excluded from Android Auto-Backup (`allowBackup=false`) |
+
+---
+
+## ⚖️ Legal Disclaimer
+
+Codex Quota is an independent, open-source project developed for developers and power users to monitor their personal API usage and subscription windows.
+
+* This application is **not** created, affiliated with, authorized, maintained, sponsored, or endorsed by OpenAI, Inc.
+* OpenAI, ChatGPT, Codex, and GPT are trademarks or registered trademarks of OpenAI, Inc.
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.

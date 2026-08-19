@@ -1,5 +1,6 @@
 package com.codex.quota.data.remote
 
+import com.codex.quota.data.remote.dto.ChatGptAccountCheckData
 import com.codex.quota.data.remote.dto.ChatGptWhamUsageDto
 import com.codex.quota.data.remote.dto.OpenAiModelsResponseDto
 import com.codex.quota.data.remote.dto.ParsedRateLimits
@@ -114,6 +115,44 @@ class OpenAiUsageApi(
                     else -> "HTTP $code: $bodyString"
                 }
                 ApiResponse.HttpError(code, errorMsg, rateLimits)
+            }
+        } catch (e: IOException) {
+            ApiResponse.NetworkError(e)
+        } catch (e: Exception) {
+            ApiResponse.NetworkError(e)
+        }
+    }
+
+    suspend fun fetchChatGptAccountCheck(
+        accessToken: String,
+        chatgptAccountId: String? = null
+    ): ApiResponse<ChatGptAccountCheckData> = withContext(Dispatchers.IO) {
+        val cleanToken = accessToken.trim().removePrefix("Bearer ").removePrefix("bearer ")
+        val requestBuilder = Request.Builder()
+            .url("https://chatgpt.com/backend-api/accounts/check/v4-2023-04-27")
+            .header("Authorization", "Bearer $cleanToken")
+            .header("User-Agent", "CodexQuota-Android/1.0 (Android; Mobile)")
+            .header("Accept", "application/json")
+
+        if (!chatgptAccountId.isNullOrBlank()) {
+            requestBuilder.header("ChatGPT-Account-ID", chatgptAccountId)
+        }
+
+        try {
+            val response: Response = client.newCall(requestBuilder.build()).execute()
+            val rateLimits = ParsedRateLimits.fromHeaders(response.headers)
+            val code = response.code
+            val bodyString = response.body?.string().orEmpty()
+
+            if (response.isSuccessful && bodyString.isNotBlank()) {
+                val data = ChatGptAccountCheckData.fromJson(bodyString, chatgptAccountId)
+                if (data != null) {
+                    ApiResponse.Success(data, rateLimits, code)
+                } else {
+                    ApiResponse.HttpError(code, "Failed to parse account details", rateLimits)
+                }
+            } else {
+                ApiResponse.HttpError(code, "Failed to fetch account check ($code)", rateLimits)
             }
         } catch (e: IOException) {
             ApiResponse.NetworkError(e)

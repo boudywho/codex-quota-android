@@ -40,9 +40,19 @@ class RealOpenAiDataSource(
                 return Result.success(usage)
             }
 
-            // Fetch live ChatGPT subscriber usage and rate limits from chatgpt.com/backend-api/wham/usage
+            // Fetch live ChatGPT subscriber usage from chatgpt.com/backend-api/wham/usage
             val chatgptAccountId = decoded.chatgptAccountId ?: account.organizationId
             val whamResponse = api.fetchChatGptSubscriberUsage(apiKey, chatgptAccountId)
+
+            // Also fetch OpenAI account & subscription entitlement details from accounts/check
+            val checkResponse = api.fetchChatGptAccountCheck(apiKey, chatgptAccountId)
+            val checkData = if (checkResponse is ApiResponse.Success) checkResponse.data else null
+
+            val subRenewalEpochMs = checkData?.subscriptionRenewsEpochMs ?: decoded.subscriptionExpiresAtEpochMs
+            val accountCreatedEpochMs = checkData?.accountCreatedEpochMs
+            val billingPeriod = checkData?.billingPeriod ?: "Monthly"
+            val willAutoRenew = checkData?.willRenew ?: true
+            val hasActiveSubscription = checkData?.hasActiveSubscription ?: true
 
             when (whamResponse) {
                 is ApiResponse.Success -> {
@@ -90,9 +100,12 @@ class RealOpenAiDataSource(
                         fetchedAtEpochMs = now,
                         rateLimitInfo = rateLimitInfo,
                         errorMessage = if (isLimitReached) "Usage limit reached. Resets in $resetDurationFormatted" else null,
-                        subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                        subscriptionRenewalEpochMs = subRenewalEpochMs,
                         subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
-                        billingPeriod = "Monthly"
+                        billingPeriod = billingPeriod,
+                        accountCreatedEpochMs = accountCreatedEpochMs,
+                        willAutoRenew = willAutoRenew,
+                        hasActiveSubscription = hasActiveSubscription
                     )
                     return Result.success(usage)
                 }
@@ -111,9 +124,12 @@ class RealOpenAiDataSource(
                             fetchedAtEpochMs = now,
                             rateLimitInfo = null,
                             errorMessage = "Session expired or revoked. Please re-authenticate.",
-                            subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                            subscriptionRenewalEpochMs = subRenewalEpochMs,
                             subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
-                            billingPeriod = "Monthly"
+                            billingPeriod = billingPeriod,
+                            accountCreatedEpochMs = accountCreatedEpochMs,
+                            willAutoRenew = willAutoRenew,
+                            hasActiveSubscription = hasActiveSubscription
                         )
                         return Result.success(usage)
                     }
@@ -131,9 +147,12 @@ class RealOpenAiDataSource(
                         fetchedAtEpochMs = now,
                         rateLimitInfo = null,
                         errorMessage = whamResponse.message,
-                        subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                        subscriptionRenewalEpochMs = subRenewalEpochMs,
                         subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
-                        billingPeriod = "Monthly"
+                        billingPeriod = billingPeriod,
+                        accountCreatedEpochMs = accountCreatedEpochMs,
+                        willAutoRenew = willAutoRenew,
+                        hasActiveSubscription = hasActiveSubscription
                     )
                     return Result.success(usage)
                 }
@@ -151,9 +170,12 @@ class RealOpenAiDataSource(
                         fetchedAtEpochMs = now,
                         rateLimitInfo = null,
                         errorMessage = whamResponse.exception.message,
-                        subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                        subscriptionRenewalEpochMs = subRenewalEpochMs,
                         subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
-                        billingPeriod = "Monthly"
+                        billingPeriod = billingPeriod,
+                        accountCreatedEpochMs = accountCreatedEpochMs,
+                        willAutoRenew = willAutoRenew,
+                        hasActiveSubscription = hasActiveSubscription
                     )
                     return Result.success(usage)
                 }

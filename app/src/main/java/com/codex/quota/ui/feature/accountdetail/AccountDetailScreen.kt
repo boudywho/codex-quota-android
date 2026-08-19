@@ -280,7 +280,7 @@ fun AccountDetailScreen(
                     }
                 }
 
-                // Dedicated Subscription & Renewal Card (When active subscription expiry is available)
+                // Dedicated Subscription & Renewal Card
                 if (usage?.subscriptionRenewalEpochMs != null) {
                     item {
                         Card(
@@ -308,7 +308,7 @@ fun AccountDetailScreen(
                                             .padding(horizontal = 8.dp, vertical = 4.dp)
                                     ) {
                                         Text(
-                                            text = "Auto-Renews",
+                                            text = if (usage.willAutoRenew == false) "Expiring" else "Auto-Renews",
                                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                             color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
@@ -323,27 +323,22 @@ fun AccountDetailScreen(
                                 val daysLeft = ((usage.subscriptionRenewalEpochMs - System.currentTimeMillis()) / (1000L * 60 * 60 * 24)).coerceAtLeast(0)
 
                                 DetailMetricRow(
-                                    label = "Subscription Plan",
+                                    label = "Plan Type",
                                     value = "${account.planType.displayName} (${usage.billingPeriod ?: "Monthly"})"
                                 )
 
                                 DetailMetricRow(
-                                    label = "Renewal / Expiry Date",
+                                    label = "Renewal / Expiration Date",
                                     value = "$renewalDate (in $daysLeft days)"
                                 )
 
-                                if (usage.subscriptionStartedAtEpochMs != null) {
-                                    val startDate = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
-                                        .format(Date(usage.subscriptionStartedAtEpochMs))
-                                    DetailMetricRow(
-                                        label = "Billing Cycle Started",
-                                        value = startDate
-                                    )
-                                }
-
                                 DetailMetricRow(
-                                    label = "Status",
-                                    value = "Active Subscription (Auto-renews next cycle)"
+                                    label = "Auto-Renewal Status",
+                                    value = if (usage.willAutoRenew == false) {
+                                        "Manual renewal / Cancels at period end"
+                                    } else {
+                                        "Active Subscription (Will auto-renew on next cycle)"
+                                    }
                                 )
                             }
                         }
@@ -427,8 +422,14 @@ fun AccountDetailScreen(
                             if (account.organizationId != null) {
                                 DetailMetricRow(label = "Organization ID", value = account.organizationId)
                             }
+                            if (usage?.accountCreatedEpochMs != null) {
+                                DetailMetricRow(
+                                    label = "OpenAI Account Created",
+                                    value = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(usage.accountCreatedEpochMs))
+                                )
+                            }
                             DetailMetricRow(
-                                label = "Account Created",
+                                label = "Added to Codex Quota",
                                 value = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(account.createdAtEpochMs))
                             )
                             DetailMetricRow(

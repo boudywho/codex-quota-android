@@ -11,6 +11,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
@@ -21,6 +22,7 @@ import com.codex.quota.ui.navigation.AppNavigation
 import com.codex.quota.ui.navigation.Screen
 import com.codex.quota.ui.theme.CodexQuotaTheme
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
 
@@ -33,17 +35,25 @@ class MainActivity : ComponentActivity() {
         val app = application as CodexQuotaApplication
         handleIncomingIntent(intent, app)
 
+        // Read initial preferences synchronously to prevent any startDestination flashing on frame 0
+        val initialPreferences = runBlocking {
+            try {
+                app.preferencesRepository.getPreferences()
+            } catch (e: Exception) {
+                UserPreferences()
+            }
+        }
+
         // Refresh on open if configured
         lifecycleScope.launch {
-            val prefs = app.preferencesRepository.getPreferences()
-            if (prefs.refreshOnAppOpen) {
+            if (initialPreferences.refreshOnAppOpen) {
                 app.repository.refreshAllAccounts()
             }
         }
 
         setContent {
             val preferences by app.preferencesRepository.observePreferences()
-                .collectAsState(initial = UserPreferences())
+                .collectAsState(initial = initialPreferences)
 
             CodexQuotaTheme(
                 themeMode = preferences.themeMode,
@@ -56,10 +66,12 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     activeNavController = navController
 
-                    val startDestination = if (preferences.hasCompletedOnboarding) {
-                        Screen.Dashboard.route
-                    } else {
-                        Screen.Onboarding.route
+                    val startDestination = remember {
+                        if (initialPreferences.hasCompletedOnboarding) {
+                            Screen.Dashboard.route
+                        } else {
+                            Screen.Onboarding.route
+                        }
                     }
 
                     AppNavigation(

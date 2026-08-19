@@ -44,6 +44,7 @@ import com.codex.quota.ui.feature.dashboard.DashboardViewModel
 import com.codex.quota.ui.feature.onboarding.OnboardingScreen
 import com.codex.quota.ui.feature.settings.SettingsScreen
 import com.codex.quota.ui.feature.settings.SettingsViewModel
+import com.codex.quota.ui.util.scopedViewModel
 
 @Composable
 fun AppNavigation(
@@ -69,10 +70,12 @@ fun AppNavigation(
                     NavigationBarItem(
                         selected = currentRoute == Screen.Dashboard.route,
                         onClick = {
-                            navController.navigate(Screen.Dashboard.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                            if (currentRoute != Screen.Dashboard.route) {
+                                navController.navigate(Screen.Dashboard.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
                         icon = { Icon(Icons.Default.Dashboard, contentDescription = null) },
@@ -81,10 +84,12 @@ fun AppNavigation(
                     NavigationBarItem(
                         selected = currentRoute == Screen.Settings.route,
                         onClick = {
-                            navController.navigate(Screen.Settings.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                            if (currentRoute != Screen.Settings.route) {
+                                navController.navigate(Screen.Settings.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         },
                         icon = { Icon(Icons.Default.Settings, contentDescription = null) },
@@ -100,10 +105,10 @@ fun AppNavigation(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            enterTransition = { fadeIn(animationSpec = tween(200)) },
-            exitTransition = { fadeOut(animationSpec = tween(200)) },
-            popEnterTransition = { fadeIn(animationSpec = tween(200)) },
-            popExitTransition = { fadeOut(animationSpec = tween(200)) }
+            enterTransition = { fadeIn(animationSpec = tween(150)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) }
         ) {
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(
@@ -122,10 +127,12 @@ fun AppNavigation(
                     navDeepLink { uriPattern = "codexquota://dashboard" }
                 )
             ) {
-                val dashboardViewModel = DashboardViewModel(
-                    observeAccountsUseCase = ObserveAccountsUseCase(app.repository),
-                    refreshAllAccountsUseCase = RefreshAllAccountsUseCase(app.repository)
-                )
+                val dashboardViewModel: DashboardViewModel = scopedViewModel {
+                    DashboardViewModel(
+                        observeAccountsUseCase = ObserveAccountsUseCase(app.repository),
+                        refreshAllAccountsUseCase = RefreshAllAccountsUseCase(app.repository)
+                    )
+                }
                 DashboardScreen(
                     viewModel = dashboardViewModel,
                     onNavigateToAccountDetail = { accountId ->
@@ -145,13 +152,15 @@ fun AppNavigation(
                 )
             ) { backStackEntry ->
                 val accountId = backStackEntry.arguments?.getString("accountId").orEmpty()
-                val detailViewModel = AccountDetailViewModel(
-                    accountId = accountId,
-                    repository = app.repository,
-                    refreshAccountUseCase = RefreshAccountUseCase(app.repository),
-                    updateAccountUseCase = UpdateAccountUseCase(app.repository),
-                    removeAccountUseCase = RemoveAccountUseCase(app.repository)
-                )
+                val detailViewModel: AccountDetailViewModel = scopedViewModel(key = accountId) {
+                    AccountDetailViewModel(
+                        accountId = accountId,
+                        repository = app.repository,
+                        refreshAccountUseCase = RefreshAccountUseCase(app.repository),
+                        updateAccountUseCase = UpdateAccountUseCase(app.repository),
+                        removeAccountUseCase = RemoveAccountUseCase(app.repository)
+                    )
+                }
                 AccountDetailScreen(
                     viewModel = detailViewModel,
                     onNavigateBack = { navController.popBackStack() }
@@ -165,9 +174,11 @@ fun AppNavigation(
                     navDeepLink { uriPattern = "codexquota://oauth/callback" }
                 )
             ) {
-                val addAccountViewModel = AddAccountViewModel(
-                    addAccountUseCase = AddAccountUseCase(app.repository)
-                )
+                val addAccountViewModel: AddAccountViewModel = scopedViewModel {
+                    AddAccountViewModel(
+                        addAccountUseCase = AddAccountUseCase(app.repository)
+                    )
+                }
 
                 LaunchedEffect(Unit) {
                     val oauthUri = app.currentOAuthCallbackUri
@@ -184,10 +195,12 @@ fun AppNavigation(
             }
 
             composable(Screen.Settings.route) {
-                val settingsViewModel = SettingsViewModel(
-                    preferencesRepository = app.preferencesRepository,
-                    accountRepository = app.repository
-                )
+                val settingsViewModel: SettingsViewModel = scopedViewModel {
+                    SettingsViewModel(
+                        preferencesRepository = app.preferencesRepository,
+                        accountRepository = app.repository
+                    )
+                }
                 SettingsScreen(
                     viewModel = settingsViewModel,
                     onNavigateToAbout = { navController.navigate(Screen.About.route) }

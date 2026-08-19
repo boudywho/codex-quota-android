@@ -35,7 +35,7 @@ class DashboardViewModel(
     val accountsState: StateFlow<List<AccountWithUsage>> = observeAccountsUseCase()
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 

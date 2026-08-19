@@ -1,6 +1,5 @@
 package com.codex.quota.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codex.quota.domain.model.AccountWithUsage
 import com.codex.quota.domain.model.AuthStatus
-import com.codex.quota.ui.theme.Amber500
 import com.codex.quota.ui.theme.Red500
 import java.text.NumberFormat
 import java.util.Locale
@@ -58,12 +56,6 @@ fun AccountCard(
         MaterialTheme.colorScheme.primary
     }
 
-    val borderColor = when {
-        isSignedOut -> Red500.copy(alpha = 0.5f)
-        usage?.isStale == true -> Amber500.copy(alpha = 0.4f)
-        else -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-    }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -71,10 +63,9 @@ fun AccountCard(
             .clickable { onClick() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        border = BorderStroke(1.dp, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -119,125 +110,178 @@ fun AccountCard(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (isSignedOut) {
-                // Prominent Sign-In Required Banner
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Red500.copy(alpha = 0.1f))
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Warning",
-                        tint = Red500,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column(modifier = Modifier.weight(1f)) {
+                SignedOutBanner(onSignInClick = onSignInClick)
+            } else {
+                ActiveQuotaSection(item = item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveQuotaSection(item: AccountWithUsage) {
+    val usage = item.usage
+    val remainingPercent = usage?.remainingPercent
+    val rateLimitInfo = usage?.rateLimitInfo
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Circular Gauge
+        CircularQuotaGauge(
+            remainingPercent = remainingPercent,
+            modifier = Modifier.size(80.dp),
+            strokeWidth = 9.dp
+        )
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Quota details column
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            if (rateLimitInfo?.limitTokens != null && rateLimitInfo.remainingTokens != null) {
+                val formattedTokens = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.remainingTokens)
+                val formattedLimit = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.limitTokens)
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = "Authentication Expired",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                            color = Red500
-                        )
-                        Text(
-                            text = "Credentials are no longer valid. Tap to re-authenticate.",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "Token Limit",
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                    Button(
-                        onClick = onSignInClick,
-                        colors = ButtonDefaults.buttonColors(containerColor = Red500),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Sign in", color = Color.White, fontSize = 12.sp)
-                    }
-                }
-            } else {
-                // Quota Gauges and Key Metrics
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    CircularQuotaGauge(
-                        remainingPercent = usage?.remainingPercent,
-                        size = 84.dp,
-                        strokeWidth = 8.dp
-                    )
-
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 18.dp)
-                    ) {
-                        val resetText = usage?.rateLimitInfo?.resetRequestsDuration
-                            ?: usage?.rateLimitInfo?.resetTokensDuration
-                            ?: if (usage?.resetAtEpochMs != null) {
-                                val remainingMin = ((usage.resetAtEpochMs - System.currentTimeMillis()) / 60000L).coerceAtLeast(0)
-                                if (remainingMin >= 60) "${remainingMin / 60}h ${remainingMin % 60}m" else "${remainingMin}m"
-                            } else "Continuous window"
-
                         Text(
-                            text = "Resets in: $resetText",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            text = "$formattedTokens / $formattedLimit",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        if (usage?.totalLimitTokens != null && usage.usedTokens != null) {
-                            val format = NumberFormat.getNumberInstance(Locale.getDefault())
-                            Text(
-                                text = "Tokens: ${format.format(usage.usedTokens)} / ${format.format(usage.totalLimitTokens)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else if (usage?.rateLimitInfo?.limitRequests != null && usage.rateLimitInfo.remainingRequests != null) {
-                            Text(
-                                text = "Requests: ${usage.rateLimitInfo.remainingRequests} / ${usage.rateLimitInfo.limitRequests} left",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        if (usage?.remainingCredits != null) {
-                            Text(
-                                text = "Credits: $${String.format(Locale.US, "%.2f", usage.remainingCredits)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
                     }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-                LinearQuotaBar(remainingPercent = usage?.remainingPercent)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Footer: relative timestamp and stale warning
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                RelativeTimeText(
-                    epochMs = usage?.fetchedAtEpochMs ?: account.lastSuccessfulSyncEpochMs,
-                    style = MaterialTheme.typography.labelSmall
-                )
-
-                if (usage?.isStale == true && !isSignedOut) {
-                    Text(
-                        text = "Stale (offline cache)",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Amber500
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearQuotaBar(
+                        remainingPercent = rateLimitInfo.tokenRemainingPercent,
+                        modifier = Modifier.height(6.dp)
                     )
                 }
             }
+
+            if (rateLimitInfo?.limitRequests != null && rateLimitInfo.remainingRequests != null) {
+                val formattedReqs = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.remainingRequests)
+                val formattedLimit = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.limitRequests)
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Request Limit",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "$formattedReqs / $formattedLimit",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearQuotaBar(
+                        remainingPercent = rateLimitInfo.requestRemainingPercent,
+                        modifier = Modifier.height(6.dp)
+                    )
+                }
+            }
+
+            if (rateLimitInfo?.limitTokens == null && rateLimitInfo?.limitRequests == null) {
+                Text(
+                    text = "Subscription Quota Active",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Rolling message limit window",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.height(14.dp))
+
+    // Footer: Reset countdown & Relative sync timestamp
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val resetDuration = rateLimitInfo?.resetTokensDuration
+            ?: rateLimitInfo?.resetRequestsDuration
+            ?: (if (usage?.resetAtEpochMs != null) "Rolling window" else "Active")
+
+        Text(
+            text = "Resets in: $resetDuration",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        RelativeTimeText(
+            epochMs = usage?.fetchedAtEpochMs,
+            style = MaterialTheme.typography.labelSmall
+        )
+    }
+}
+
+@Composable
+private fun SignedOutBanner(
+    onSignInClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Red500.copy(alpha = 0.1f))
+            .padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = Red500,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Account Signed Out",
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = Red500
+            )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = "Credentials have expired or been revoked. Re-authenticate to resume real-time quota tracking.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            lineHeight = 18.sp
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Button(
+            onClick = onSignInClick,
+            colors = ButtonDefaults.buttonColors(containerColor = Red500),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Re-Authenticate Now", fontWeight = FontWeight.Bold, color = Color.White)
         }
     }
 }

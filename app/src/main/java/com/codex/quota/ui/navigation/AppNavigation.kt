@@ -1,18 +1,24 @@
 package com.codex.quota.ui.navigation
 
-import android.net.Uri
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -52,10 +58,14 @@ fun AppNavigation(
     val showBottomBar = currentRoute in listOf(Screen.Dashboard.route, Screen.Settings.route)
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (showBottomBar) {
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
+                ) {
                     NavigationBarItem(
                         selected = currentRoute == Screen.Dashboard.route,
                         onClick = {
@@ -87,7 +97,13 @@ fun AppNavigation(
         NavHost(
             navController = navController,
             startDestination = startDestination,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            enterTransition = { fadeIn(animationSpec = tween(200)) },
+            exitTransition = { fadeOut(animationSpec = tween(200)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(200)) },
+            popExitTransition = { fadeOut(animationSpec = tween(200)) }
         ) {
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(
@@ -142,10 +158,25 @@ fun AppNavigation(
                 )
             }
 
-            composable(Screen.AddAccount.route) {
+            composable(
+                route = Screen.AddAccount.route,
+                deepLinks = listOf(
+                    navDeepLink { uriPattern = "codexquota://oauth/callback?code={code}" },
+                    navDeepLink { uriPattern = "codexquota://oauth/callback" }
+                )
+            ) {
                 val addAccountViewModel = AddAccountViewModel(
                     addAccountUseCase = AddAccountUseCase(app.repository)
                 )
+
+                LaunchedEffect(Unit) {
+                    val oauthUri = app.currentOAuthCallbackUri
+                    if (oauthUri != null) {
+                        addAccountViewModel.handleOAuthCallbackUri(oauthUri)
+                        app.currentOAuthCallbackUri = null
+                    }
+                }
+
                 AddAccountScreen(
                     viewModel = addAccountViewModel,
                     onNavigateBack = { navController.popBackStack() }

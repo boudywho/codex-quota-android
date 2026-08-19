@@ -49,6 +49,17 @@
                     android:scheme="codexquota"
                     android:host="dashboard" />
             </intent-filter>
+
+            <!-- Deep link for OAuth 2.0 PKCE callback -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="codexquota"
+                    android:host="oauth"
+                    android:pathPrefix="/callback" />
+            </intent-filter>
         </activity>
 
         <!-- Widget Configuration Activity -->
@@ -61,10 +72,11 @@
             </intent-filter>
         </activity>
 
-        <!-- Glance Widget Receivers -->
+        <!-- Small Quota Widget Receiver -->
         <receiver
             android:name=".widget.SmallQuotaWidgetReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/widget_small_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -73,9 +85,11 @@
                 android:resource="@xml/small_quota_widget_info" />
         </receiver>
 
+        <!-- Medium Quota Widget Receiver -->
         <receiver
             android:name=".widget.MediumQuotaWidgetReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/widget_medium_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -84,9 +98,11 @@
                 android:resource="@xml/medium_quota_widget_info" />
         </receiver>
 
+        <!-- Multi Account Quota Widget Receiver -->
         <receiver
             android:name=".widget.MultiAccountQuotaWidgetReceiver"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/widget_multi_name">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

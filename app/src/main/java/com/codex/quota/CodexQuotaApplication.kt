@@ -1,6 +1,7 @@
 package com.codex.quota
 
 import android.app.Application
+import android.net.Uri
 import com.codex.quota.data.local.AppDatabase
 import com.codex.quota.data.local.DataStoreManager
 import com.codex.quota.data.remote.MockOpenAiDataSource
@@ -20,6 +21,8 @@ import kotlinx.coroutines.launch
 class CodexQuotaApplication : Application() {
 
     val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    var currentOAuthCallbackUri: Uri? = null
 
     lateinit var database: AppDatabase
         private set

@@ -252,7 +252,8 @@ fun SettingsScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                )
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -309,9 +310,9 @@ private fun SettingsSection(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

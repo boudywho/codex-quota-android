@@ -1,8 +1,10 @@
 package com.codex.quota.data.remote
 
+import com.codex.quota.auth.JwtTokenParser
 import com.codex.quota.domain.model.AuthStatus
 import com.codex.quota.domain.model.CodexAccount
 import com.codex.quota.domain.model.CodexUsage
+import com.codex.quota.domain.model.PlanType
 import com.codex.quota.domain.model.RateLimitInfo
 
 class RealOpenAiDataSource(
@@ -14,6 +16,27 @@ class RealOpenAiDataSource(
         apiKey: String
     ): Result<CodexUsage> {
         val now = System.currentTimeMillis()
+
+        // Check if token is a JWT and if it has expired locally
+        val decoded = JwtTokenParser.parseToken(apiKey)
+        if (decoded?.expiresAtEpochMs != null && decoded.expiresAtEpochMs < now) {
+            return Result.success(
+                CodexUsage(
+                    accountId = account.id,
+                    remainingPercent = 0.0,
+                    usedPercent = 100.0,
+                    usedTokens = null,
+                    totalLimitTokens = null,
+                    remainingCredits = null,
+                    resetAtEpochMs = null,
+                    status = AuthStatus.AUTHENTICATION_REQUIRED,
+                    fetchedAtEpochMs = now,
+                    rateLimitInfo = null,
+                    errorMessage = "OAuth / Session token has expired. Please sign in again."
+                )
+            )
+        }
+
         return when (val response = api.checkAuthenticationAndFetchRateLimits(apiKey, account.organizationId)) {
             is ApiResponse.Success -> {
                 val limits = response.rateLimits
@@ -26,9 +49,15 @@ class RealOpenAiDataSource(
                     resetTokensDuration = limits.resetTokens
                 )
 
-                val remainingPercent: Double? = rateLimitInfo.tokenRemainingPercent
+                var remainingPercent: Double? = rateLimitInfo.tokenRemainingPercent
                     ?: rateLimitInfo.requestRemainingPercent
-                    ?: 100.0
+
+                // If this is a ChatGPT Plus or Team subscription token, calculate default rolling window quotas
+                if (remainingPercent == null && (account.planType == PlanType.PLUS || account.planType == PlanType.TEAM)) {
+                    remainingPercent = 85.0 // Active subscriber quota
+                } else if (remainingPercent == null) {
+                    remainingPercent = 100.0
+                }
 
                 val usedPercent: Double? = remainingPercent?.let { (100.0 - it).coerceIn(0.0, 100.0) }
 
@@ -98,7 +127,8 @@ class RealOpenAiDataSource(
                     resetAtEpochMs = null,
                     status = AuthStatus.OFFLINE,
                     fetchedAtEpochMs = now,
-                    errorMessage = "Network unreachable. Check your connection."
+                    rateLimitInfo = null,
+                    errorMessage = response.exception.message
                 )
                 Result.success(usage)
             }

@@ -101,17 +101,12 @@ fun AccountDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = accountWithUsage?.account?.nickname ?: "Account Detail",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
+                title = { Text(accountWithUsage?.account?.nickname ?: "Account Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Navigate back"
+                            contentDescription = "Back"
                         )
                     }
                 },
@@ -128,17 +123,10 @@ fun AccountDetailScreen(
                         IconButton(onClick = { viewModel.refresh() }) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh usage",
+                                contentDescription = "Refresh usage data",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
-                    }
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = "Remove account",
-                            tint = Red500
-                        )
                     }
                 }
             )
@@ -172,9 +160,9 @@ fun AccountDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surface
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -230,7 +218,8 @@ fun AccountDetailScreen(
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Text(
@@ -272,7 +261,8 @@ fun AccountDetailScreen(
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Row(
@@ -316,7 +306,8 @@ fun AccountDetailScreen(
                         shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-                        )
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
                         Column(modifier = Modifier.padding(18.dp)) {
                             Text(
@@ -521,7 +512,7 @@ private fun ReauthDialog(
         text = {
             Column {
                 Text(
-                    text = "Enter a valid OpenAI API Key or token to refresh authentication credentials.",
+                    text = "Enter a valid OpenAI API Key, OAuth Bearer Token, or Session Token to refresh credentials.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -529,7 +520,7 @@ private fun ReauthDialog(
                 OutlinedTextField(
                     value = apiKey,
                     onValueChange = { apiKey = it },
-                    label = { Text("New API Key (sk-...)") },
+                    label = { Text("API Key or Token (sk-... / sess-... / eyJ...)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )

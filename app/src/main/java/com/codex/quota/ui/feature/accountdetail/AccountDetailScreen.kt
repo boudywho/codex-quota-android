@@ -29,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,11 +54,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codex.quota.domain.model.AuthStatus
 import com.codex.quota.ui.components.CircularQuotaGauge
-import com.codex.quota.ui.components.LinearQuotaBar
 import com.codex.quota.ui.components.RelativeTimeText
 import com.codex.quota.ui.components.StatusBadge
 import com.codex.quota.ui.theme.Amber500
@@ -101,7 +103,14 @@ fun AccountDetailScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(accountWithUsage?.account?.nickname ?: "Account Details", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        text = accountWithUsage?.account?.nickname ?: "Account Details",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
@@ -128,7 +137,10 @@ fun AccountDetailScreen(
                             )
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { padding ->
@@ -146,6 +158,8 @@ fun AccountDetailScreen(
             val account = data.account
             val usage = data.usage
             val status = usage?.status ?: account.authStatus
+            val remainingPercent = usage?.remainingPercent
+            val usedPercent = usage?.usedPercent ?: (remainingPercent?.let { (100.0 - it).coerceIn(0.0, 100.0) })
 
             LazyColumn(
                 modifier = Modifier
@@ -183,34 +197,90 @@ fun AccountDetailScreen(
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
                             CircularQuotaGauge(
-                                remainingPercent = usage?.remainingPercent,
-                                size = 130.dp,
+                                remainingPercent = remainingPercent,
+                                size = 140.dp,
                                 strokeWidth = 12.dp
                             )
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
-                            LinearQuotaBar(remainingPercent = usage?.remainingPercent, height = 10.dp)
+                            // 3-Metric Summary Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                                    .padding(vertical = 12.dp, horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "Remaining",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = if (remainingPercent != null) "${remainingPercent.toInt()}%" else "--%",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
 
-                            Spacer(modifier = Modifier.height(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(24.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                )
 
-                            val resetStr = usage?.rateLimitInfo?.resetRequestsDuration
-                                ?: usage?.rateLimitInfo?.resetTokensDuration
-                                ?: "Standard rolling window"
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "Used",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = if (usedPercent != null) "${usedPercent.toInt()}%" else "--%",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
 
-                            Text(
-                                text = "Window Reset: $resetStr",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                                Box(
+                                    modifier = Modifier
+                                        .width(1.dp)
+                                        .height(24.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                                )
+
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "Reset In",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    val resetStr = usage?.rateLimitInfo?.resetRequestsDuration
+                                        ?: usage?.rateLimitInfo?.resetTokensDuration
+                                        ?: "Active"
+                                    Text(
+                                        text = resetStr,
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
                         }
                     }
                 }
 
-                // Rate Limit Window Breakdown Card
+                // Rate Limit Dimensions Card
                 item {
                     val rateLimits = usage?.rateLimitInfo
                     Card(
@@ -279,21 +349,21 @@ fun AccountDetailScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             DetailMetricRow(label = "Nickname", value = account.nickname)
                             if (account.email != null) {
-                                DetailMetricRow(label = "Email", value = account.email)
+                                DetailMetricRow(label = "Email Address", value = account.email)
                             }
                             if (account.organizationId != null) {
                                 DetailMetricRow(label = "Organization ID", value = account.organizationId)
                             }
                             DetailMetricRow(
-                                label = "Created",
-                                value = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(account.createdAtEpochMs))
+                                label = "Account Created",
+                                value = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(account.createdAtEpochMs))
                             )
                             DetailMetricRow(
-                                label = "Storage Security",
-                                value = "AES-256-GCM Keystore Hardware Protected"
+                                label = "Key Encryption & Storage",
+                                value = "Hardware-backed Android Keystore (AES-256-GCM)"
                             )
                         }
                     }
@@ -425,15 +495,27 @@ fun AccountDetailScreen(
 }
 
 @Composable
-private fun DetailMetricRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
+private fun DetailMetricRow(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(vertical = 5.dp)
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
 
@@ -448,53 +530,62 @@ private fun EditAccountDialog(
     var selectedColor by remember { mutableStateOf(currentColorHex) }
 
     val colorOptions = listOf(
-        "#10B981", "#38BDF8", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#64748B"
+        "#10B981", "#3B82F6", "#8B5CF6", "#EC4899",
+        "#F59E0B", "#06B6D4", "#6366F1", "#84CC16"
     )
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Account") },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 OutlinedTextField(
                     value = nickname,
                     onValueChange = { nickname = it },
-                    label = { Text("Account Nickname") },
+                    label = { Text("Nickname") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Color Tag", style = MaterialTheme.typography.labelMedium)
-                Spacer(modifier = Modifier.height(8.dp))
-
+                Text("Theme Color", style = MaterialTheme.typography.labelMedium)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     colorOptions.forEach { hex ->
                         val color = Color(android.graphics.Color.parseColor(hex))
+                        val isSelected = selectedColor.equals(hex, ignoreCase = true)
                         Box(
                             modifier = Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
                                 .background(color)
                                 .clickable { selectedColor = hex }
-                                .padding(if (selectedColor == hex) 4.dp else 0.dp)
-                        )
+                        ) {
+                            if (isSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                        .align(Alignment.Center)
+                                )
+                            }
+                        }
                     }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(nickname, selectedColor) }) {
-                Text("Save")
+            Button(
+                onClick = { if (nickname.isNotBlank()) onConfirm(nickname.trim(), selectedColor) },
+                enabled = nickname.isNotBlank()
+            ) {
+                Text("Save Changes")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }
@@ -504,40 +595,38 @@ private fun ReauthDialog(
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit
 ) {
-    var apiKey by remember { mutableStateOf("") }
+    var keyInput by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Re-Authenticate") },
+        title = { Text("Re-Authenticate Credentials") },
         text = {
             Column {
                 Text(
-                    text = "Enter a valid OpenAI API Key, OAuth Bearer Token, or Session Token to refresh credentials.",
+                    text = "Enter a fresh OpenAI API key (sk-...) or Session JWT token for this account.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 OutlinedTextField(
-                    value = apiKey,
-                    onValueChange = { apiKey = it },
-                    label = { Text("API Key or Token (sk-... / sess-... / eyJ...)") },
-                    singleLine = true,
+                    value = keyInput,
+                    onValueChange = { keyInput = it },
+                    label = { Text("API Key or Token") },
+                    placeholder = { Text("sk-...") },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(apiKey) },
-                enabled = apiKey.isNotBlank()
+                onClick = { if (keyInput.isNotBlank()) onConfirm(keyInput.trim()) },
+                enabled = keyInput.isNotBlank()
             ) {
-                Text("Update & Sync")
+                Text("Update Key")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }

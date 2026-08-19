@@ -21,6 +21,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codex.quota.domain.model.AccountWithUsage
@@ -72,14 +74,14 @@ fun AccountCard(
                 .fillMaxWidth()
                 .padding(18.dp)
         ) {
-            // Header Row: Color Indicator, Nickname, Plan, Status Badge
+            // Header Row: Color Dot, Nickname, Plan, Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(12.dp)
+                        .size(10.dp)
                         .clip(CircleShape)
                         .background(accountColor)
                 )
@@ -88,22 +90,28 @@ fun AccountCard(
                     Text(
                         text = account.nickname,
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = account.planType.displayName,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
+                Spacer(modifier = Modifier.width(8.dp))
                 StatusBadge(status = status)
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
 
@@ -122,97 +130,122 @@ fun AccountCard(
 private fun ActiveQuotaSection(item: AccountWithUsage) {
     val usage = item.usage
     val remainingPercent = usage?.remainingPercent
+    val usedPercent = usage?.usedPercent ?: (remainingPercent?.let { (100.0 - it).coerceIn(0.0, 100.0) })
     val rateLimitInfo = usage?.rateLimitInfo
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Circular Gauge
         CircularQuotaGauge(
             remainingPercent = remainingPercent,
-            modifier = Modifier.size(80.dp),
-            strokeWidth = 9.dp
+            size = 76.dp,
+            strokeWidth = 8.dp
         )
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(18.dp))
 
-        // Quota details column
+        // Quota breakdown column
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Check if Token Limit exists (Platform API)
             if (rateLimitInfo?.limitTokens != null && rateLimitInfo.remainingTokens != null) {
                 val formattedTokens = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.remainingTokens)
                 val formattedLimit = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.limitTokens)
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Token Limit",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "$formattedTokens / $formattedLimit",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearQuotaBar(
-                        remainingPercent = rateLimitInfo.tokenRemainingPercent,
-                        modifier = Modifier.height(6.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Tokens",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "$formattedTokens / $formattedLimit",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+                LinearQuotaBar(
+                    remainingPercent = rateLimitInfo.tokenRemainingPercent,
+                    height = 5.dp
+                )
             }
 
+            // Check if Request Limit exists (Platform API)
             if (rateLimitInfo?.limitRequests != null && rateLimitInfo.remainingRequests != null) {
                 val formattedReqs = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.remainingRequests)
                 val formattedLimit = NumberFormat.getNumberInstance(Locale.US).format(rateLimitInfo.limitRequests)
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "Request Limit",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "$formattedReqs / $formattedLimit",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearQuotaBar(
-                        remainingPercent = rateLimitInfo.requestRemainingPercent,
-                        modifier = Modifier.height(6.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Requests",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "$formattedReqs / $formattedLimit",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                LinearQuotaBar(
+                    remainingPercent = rateLimitInfo.requestRemainingPercent,
+                    height = 5.dp
+                )
+            }
+
+            // Subscriber Stats
+            if (remainingPercent != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Remaining Quota",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${remainingPercent.toInt()}% Available",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
             }
 
-            if (rateLimitInfo?.limitTokens == null && rateLimitInfo?.limitRequests == null) {
-                Text(
-                    text = "Subscription Quota Active",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "Rolling message limit window",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (usedPercent != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Used This Window",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "${usedPercent.toInt()}%",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
             }
         }
     }
 
     Spacer(modifier = Modifier.height(14.dp))
+    HorizontalDivider(
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+        thickness = 1.dp
+    )
+    Spacer(modifier = Modifier.height(10.dp))
 
     // Footer: Reset countdown & Relative sync timestamp
     Row(

@@ -239,10 +239,12 @@ class AddAccountViewModel(
         val decoded = tokenResult.decodedInfo
         val defaultNickname = if (_uiState.value.nickname.isNotBlank()) {
             _uiState.value.nickname
+        } else if (decoded?.name != null && decoded.name.isNotBlank()) {
+            "${decoded.planType.displayName} (${decoded.name})"
         } else if (decoded?.email != null) {
-            "ChatGPT ${decoded.planType.displayName} (${decoded.email.substringBefore('@')})"
+            "${decoded.planType.displayName} (${decoded.email.substringBefore('@')})"
         } else {
-            "ChatGPT Plus Account"
+            decoded?.planType?.displayName ?: "ChatGPT Plus"
         }
 
         val addResult = addAccountUseCase(

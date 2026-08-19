@@ -26,6 +26,7 @@ import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
+import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
@@ -60,9 +61,9 @@ class MediumQuotaWidget : GlanceAppWidget() {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(Color(0xFF0F172A))
-                .cornerRadius(16.dp)
-                .padding(14.dp)
+                .background(Color(0xFF111827))
+                .cornerRadius(20.dp)
+                .padding(16.dp)
                 .clickable(actionStartActivity(intent))
         ) {
             if (data == null) {
@@ -72,27 +73,48 @@ class MediumQuotaWidget : GlanceAppWidget() {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Codex Quota Monitor",
-                        style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        text = "Codex Quotas",
+                        style = TextStyle(color = ColorProvider(Color.White), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     )
-                    Spacer(modifier = GlanceModifier.height(4.dp))
+                    Spacer(modifier = GlanceModifier.height(6.dp))
                     Text(
-                        text = "No accounts configured. Tap to add.",
+                        text = "Tap to add your first account",
                         style = TextStyle(color = ColorProvider(Color(0xFF38BDF8)), fontSize = 13.sp)
                     )
                 }
             } else {
                 val remainingPercent = data.usage?.remainingPercent?.toInt()
+                val usedPercent = data.usage?.usedPercent?.toInt() ?: remainingPercent?.let { (100 - it).coerceIn(0, 100) }
                 val status = data.usage?.status ?: data.account.authStatus
                 val resetStr = data.usage?.rateLimitInfo?.resetRequestsDuration
                     ?: data.usage?.rateLimitInfo?.resetTokensDuration
-                    ?: "Rolling Window"
+                    ?: "Active Window"
 
-                Column(modifier = GlanceModifier.fillMaxSize()) {
+                val dotColor = try {
+                    Color(android.graphics.Color.parseColor(data.account.colorHex))
+                } catch (e: Exception) {
+                    Color(0xFF10B981)
+                }
+
+                Column(
+                    modifier = GlanceModifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Header Row: Dot + Nickname + Plan + Large Percentage
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box(
+                            modifier = GlanceModifier
+                                .width(8.dp)
+                                .height(8.dp)
+                                .background(dotColor)
+                                .cornerRadius(4.dp)
+                        ) {}
+
+                        Spacer(modifier = GlanceModifier.width(8.dp))
+
                         Column(modifier = GlanceModifier.defaultWeight()) {
                             Text(
                                 text = data.account.nickname,
@@ -106,49 +128,87 @@ class MediumQuotaWidget : GlanceAppWidget() {
                             )
                         }
 
+                        Spacer(modifier = GlanceModifier.width(8.dp))
+
                         if (status == AuthStatus.AUTHENTICATION_REQUIRED) {
                             Text(
-                                text = "Sign-In Required",
-                                style = TextStyle(color = ColorProvider(Color(0xFFEF4444)), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                text = "Sign In",
+                                style = TextStyle(color = ColorProvider(Color(0xFFEF4444)), fontWeight = FontWeight.Bold, fontSize = 14.sp)
                             )
                         } else {
                             Text(
                                 text = if (remainingPercent != null) "$remainingPercent%" else "--%",
-                                style = TextStyle(color = ColorProvider(Color(0xFF10B981)), fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                                style = TextStyle(color = ColorProvider(Color(0xFF10B981)), fontWeight = FontWeight.Bold, fontSize = 24.sp)
                             )
                         }
                     }
 
-                    Spacer(modifier = GlanceModifier.height(8.dp))
+                    Spacer(modifier = GlanceModifier.height(10.dp))
 
-                    // Progress Bar background
+                    // Progress Bar
                     Box(
                         modifier = GlanceModifier
                             .fillMaxWidth()
-                            .height(6.dp)
+                            .height(8.dp)
                             .background(Color(0xFF334155))
-                            .cornerRadius(3.dp)
+                            .cornerRadius(4.dp)
                     ) {
                         val fraction = ((remainingPercent ?: 0) / 100f).coerceIn(0f, 1f)
                         if (fraction > 0f) {
                             Box(
                                 modifier = GlanceModifier
                                     .fillMaxWidth()
-                                    .height(6.dp)
+                                    .height(8.dp)
                                     .background(Color(0xFF10B981))
-                                    .cornerRadius(3.dp)
+                                    .cornerRadius(4.dp)
                             ) {}
                         }
                     }
 
-                    Spacer(modifier = GlanceModifier.height(8.dp))
+                    Spacer(modifier = GlanceModifier.height(12.dp))
 
+                    // Detail Metrics Box
+                    Row(
+                        modifier = GlanceModifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1E293B))
+                            .cornerRadius(10.dp)
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = GlanceModifier.defaultWeight()) {
+                            Text(
+                                text = "USED",
+                                style = TextStyle(color = ColorProvider(Color(0xFF64748B)), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = if (usedPercent != null) "$usedPercent%" else "--%",
+                                style = TextStyle(color = ColorProvider(Color.White), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            )
+                        }
+
+                        Column(modifier = GlanceModifier.defaultWeight()) {
+                            Text(
+                                text = "RESET IN",
+                                style = TextStyle(color = ColorProvider(Color(0xFF64748B)), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = resetStr,
+                                maxLines = 1,
+                                style = TextStyle(color = ColorProvider(Color(0xFF38BDF8)), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = GlanceModifier.height(10.dp))
+
+                    // Footer Row
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Resets in $resetStr",
+                            text = "Codex Quotas",
                             style = TextStyle(color = ColorProvider(Color(0xFF64748B)), fontSize = 11.sp)
                         )
                         Spacer(modifier = GlanceModifier.defaultWeight())

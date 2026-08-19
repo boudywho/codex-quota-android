@@ -21,4 +21,8 @@ interface UserPreferencesRepository {
     suspend fun toggleQuotaAlertThreshold(threshold: Int)
     suspend fun setHasCompletedOnboarding(completed: Boolean)
     suspend fun setRenewalBannerDismissed(accountId: String, dismissed: Boolean = true)
+    suspend fun getLastNotifiedQuotaThreshold(accountId: String): Int?
+    suspend fun setLastNotifiedQuotaThreshold(accountId: String, threshold: Int?)
+    suspend fun isSignedOutAlertNotified(accountId: String): Boolean
+    suspend fun setSignedOutAlertNotified(accountId: String, notified: Boolean)
 }

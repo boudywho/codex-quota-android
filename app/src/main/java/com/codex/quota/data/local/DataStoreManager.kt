@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -152,6 +153,40 @@ class DataStoreManager(private val context: Context) {
                 current + accountId
             } else {
                 current - accountId
+            }
+        }
+    }
+
+    suspend fun getLastNotifiedQuotaThreshold(accountId: String): Int? {
+        val prefs = context.dataStore.data.first()
+        val key = intPreferencesKey("last_quota_alert_threshold_$accountId")
+        return prefs[key]
+    }
+
+    suspend fun setLastNotifiedQuotaThreshold(accountId: String, threshold: Int?) {
+        val key = intPreferencesKey("last_quota_alert_threshold_$accountId")
+        context.dataStore.edit { prefs ->
+            if (threshold != null) {
+                prefs[key] = threshold
+            } else {
+                prefs.remove(key)
+            }
+        }
+    }
+
+    suspend fun isSignedOutAlertNotified(accountId: String): Boolean {
+        val prefs = context.dataStore.data.first()
+        val key = booleanPreferencesKey("last_signed_out_notified_$accountId")
+        return prefs[key] ?: false
+    }
+
+    suspend fun setSignedOutAlertNotified(accountId: String, notified: Boolean) {
+        val key = booleanPreferencesKey("last_signed_out_notified_$accountId")
+        context.dataStore.edit { prefs ->
+            if (notified) {
+                prefs[key] = true
+            } else {
+                prefs.remove(key)
             }
         }
     }

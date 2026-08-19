@@ -65,4 +65,20 @@ class UserPreferencesRepositoryImpl(
     override suspend fun setRenewalBannerDismissed(accountId: String, dismissed: Boolean) {
         dataStoreManager.setRenewalBannerDismissed(accountId, dismissed)
     }
+
+    override suspend fun getLastNotifiedQuotaThreshold(accountId: String): Int? {
+        return dataStoreManager.getLastNotifiedQuotaThreshold(accountId)
+    }
+
+    override suspend fun setLastNotifiedQuotaThreshold(accountId: String, threshold: Int?) {
+        dataStoreManager.setLastNotifiedQuotaThreshold(accountId, threshold)
+    }
+
+    override suspend fun isSignedOutAlertNotified(accountId: String): Boolean {
+        return dataStoreManager.isSignedOutAlertNotified(accountId)
+    }
+
+    override suspend fun setSignedOutAlertNotified(accountId: String, notified: Boolean) {
+        dataStoreManager.setSignedOutAlertNotified(accountId, notified)
+    }
 }

@@ -253,12 +253,22 @@ private fun ActiveQuotaSection(item: AccountWithUsage) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val renewalDateStr = usage?.subscriptionRenewalEpochMs?.let {
+            java.text.SimpleDateFormat("MMM d", java.util.Locale.getDefault()).format(java.util.Date(it))
+        }
+
         val resetDuration = rateLimitInfo?.resetTokensDuration
             ?: rateLimitInfo?.resetRequestsDuration
             ?: (if (usage?.resetAtEpochMs != null) "Rolling window" else "Active")
 
+        val footerText = if (renewalDateStr != null) {
+            "Resets in $resetDuration • Renews $renewalDateStr"
+        } else {
+            "Resets in: $resetDuration"
+        }
+
         Text(
-            text = "Resets in: $resetDuration",
+            text = footerText,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

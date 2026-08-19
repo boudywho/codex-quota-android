@@ -280,6 +280,76 @@ fun AccountDetailScreen(
                     }
                 }
 
+                // Dedicated Subscription & Renewal Card (When active subscription expiry is available)
+                if (usage?.subscriptionRenewalEpochMs != null) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(18.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Subscription & Renewal",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer)
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "Auto-Renews",
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                val renewalDate = SimpleDateFormat("MMMM d, yyyy 'at' h:mm a", Locale.getDefault())
+                                    .format(Date(usage.subscriptionRenewalEpochMs))
+
+                                val daysLeft = ((usage.subscriptionRenewalEpochMs - System.currentTimeMillis()) / (1000L * 60 * 60 * 24)).coerceAtLeast(0)
+
+                                DetailMetricRow(
+                                    label = "Subscription Plan",
+                                    value = "${account.planType.displayName} (${usage.billingPeriod ?: "Monthly"})"
+                                )
+
+                                DetailMetricRow(
+                                    label = "Renewal / Expiry Date",
+                                    value = "$renewalDate (in $daysLeft days)"
+                                )
+
+                                if (usage.subscriptionStartedAtEpochMs != null) {
+                                    val startDate = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
+                                        .format(Date(usage.subscriptionStartedAtEpochMs))
+                                    DetailMetricRow(
+                                        label = "Billing Cycle Started",
+                                        value = startDate
+                                    )
+                                }
+
+                                DetailMetricRow(
+                                    label = "Status",
+                                    value = "Active Subscription (Auto-renews next cycle)"
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Rate Limit Dimensions Card
                 item {
                     val rateLimits = usage?.rateLimitInfo

@@ -4,6 +4,9 @@ import android.util.Base64
 import com.codex.quota.domain.model.PlanType
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 data class DecodedTokenInfo(
     val email: String?,
@@ -12,6 +15,8 @@ data class DecodedTokenInfo(
     val chatgptAccountId: String? = null,
     val planType: PlanType = PlanType.PLUS,
     val expiresAtEpochMs: Long? = null,
+    val subscriptionExpiresAtEpochMs: Long? = null,
+    val subscriptionStartedAtEpochMs: Long? = null,
     val name: String? = null,
     val rawClaims: Map<String, Any?> = emptyMap()
 )
@@ -36,6 +41,8 @@ object JwtTokenParser {
             var orgId: String? = null
             var chatgptAccountId: String? = null
             var name = json.optString("name").takeIf { it.isNotEmpty() }
+            var subExpiresAtEpochMs: Long? = null
+            var subStartedAtEpochMs: Long? = null
 
             val expSeconds = json.optLong("exp", 0L)
             val expiresAtEpochMs = if (expSeconds > 0) expSeconds * 1000L else null
@@ -72,6 +79,16 @@ object JwtTokenParser {
                 if (openAiAuth.has("chatgpt_user_id")) {
                     userId = openAiAuth.optString("chatgpt_user_id")
                 }
+
+                val subActiveUntil = openAiAuth.optString("chatgpt_subscription_active_until", "")
+                if (subActiveUntil.isNotEmpty()) {
+                    subExpiresAtEpochMs = parseIsoDate(subActiveUntil)
+                }
+
+                val subActiveStart = openAiAuth.optString("chatgpt_subscription_active_start", "")
+                if (subActiveStart.isNotEmpty()) {
+                    subStartedAtEpochMs = parseIsoDate(subActiveStart)
+                }
             }
 
             // Parse profile claims: "https://api.openai.com/profile"
@@ -92,10 +109,24 @@ object JwtTokenParser {
                 chatgptAccountId = chatgptAccountId,
                 planType = planType,
                 expiresAtEpochMs = expiresAtEpochMs,
+                subscriptionExpiresAtEpochMs = subExpiresAtEpochMs,
+                subscriptionStartedAtEpochMs = subStartedAtEpochMs,
                 name = name
             )
         } catch (e: Exception) {
             return null
+        }
+    }
+
+    private fun parseIsoDate(isoDateStr: String): Long? {
+        return try {
+            val cleanStr = isoDateStr.substringBefore('.').substringBefore('+').substringBefore('Z')
+            val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }
+            sdf.parse(cleanStr)?.time
+        } catch (e: Exception) {
+            null
         }
     }
 

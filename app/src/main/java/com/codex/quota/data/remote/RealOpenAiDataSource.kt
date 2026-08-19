@@ -32,7 +32,10 @@ class RealOpenAiDataSource(
                     status = AuthStatus.AUTHENTICATION_REQUIRED,
                     fetchedAtEpochMs = now,
                     rateLimitInfo = null,
-                    errorMessage = "ChatGPT session token has expired. Please re-authenticate."
+                    errorMessage = "ChatGPT session token has expired. Please re-authenticate.",
+                    subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                    subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
+                    billingPeriod = "Monthly"
                 )
                 return Result.success(usage)
             }
@@ -86,7 +89,10 @@ class RealOpenAiDataSource(
                         status = status,
                         fetchedAtEpochMs = now,
                         rateLimitInfo = rateLimitInfo,
-                        errorMessage = if (isLimitReached) "Usage limit reached. Resets in $resetDurationFormatted" else null
+                        errorMessage = if (isLimitReached) "Usage limit reached. Resets in $resetDurationFormatted" else null,
+                        subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                        subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
+                        billingPeriod = "Monthly"
                     )
                     return Result.success(usage)
                 }
@@ -104,7 +110,10 @@ class RealOpenAiDataSource(
                             status = AuthStatus.AUTHENTICATION_REQUIRED,
                             fetchedAtEpochMs = now,
                             rateLimitInfo = null,
-                            errorMessage = "Session expired or revoked. Please re-authenticate."
+                            errorMessage = "Session expired or revoked. Please re-authenticate.",
+                            subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                            subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
+                            billingPeriod = "Monthly"
                         )
                         return Result.success(usage)
                     }
@@ -121,7 +130,10 @@ class RealOpenAiDataSource(
                         status = AuthStatus.AUTHENTICATED,
                         fetchedAtEpochMs = now,
                         rateLimitInfo = null,
-                        errorMessage = whamResponse.message
+                        errorMessage = whamResponse.message,
+                        subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                        subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
+                        billingPeriod = "Monthly"
                     )
                     return Result.success(usage)
                 }
@@ -138,7 +150,10 @@ class RealOpenAiDataSource(
                         status = AuthStatus.OFFLINE,
                         fetchedAtEpochMs = now,
                         rateLimitInfo = null,
-                        errorMessage = whamResponse.exception.message
+                        errorMessage = whamResponse.exception.message,
+                        subscriptionRenewalEpochMs = decoded.subscriptionExpiresAtEpochMs,
+                        subscriptionStartedAtEpochMs = decoded.subscriptionStartedAtEpochMs,
+                        billingPeriod = "Monthly"
                     )
                     return Result.success(usage)
                 }

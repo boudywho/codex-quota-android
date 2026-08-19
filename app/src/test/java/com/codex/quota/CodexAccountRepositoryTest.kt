@@ -134,9 +134,19 @@ class FakeAccountDao : AccountDao {
         accounts.value = accounts.value + (account.id to account)
     }
 
+    override suspend fun updateDetails(accountId: String, nickname: String, colorHex: String, customRenewalDateEpochMs: Long?) {
+        val existing = accounts.value[accountId] ?: return
+        accounts.value = accounts.value + (accountId to existing.copy(nickname = nickname, colorHex = colorHex, customRenewalDateEpochMs = customRenewalDateEpochMs))
+    }
+
     override suspend fun updateNicknameAndColor(accountId: String, nickname: String, colorHex: String) {
         val existing = accounts.value[accountId] ?: return
         accounts.value = accounts.value + (accountId to existing.copy(nickname = nickname, colorHex = colorHex))
+    }
+
+    override suspend fun updateRenewalDate(accountId: String, renewalDateEpochMs: Long?) {
+        val existing = accounts.value[accountId] ?: return
+        accounts.value = accounts.value + (accountId to existing.copy(customRenewalDateEpochMs = renewalDateEpochMs))
     }
 
     override suspend fun updateAuthStatusAndSyncTime(accountId: String, authStatus: String, lastSync: Long?) {

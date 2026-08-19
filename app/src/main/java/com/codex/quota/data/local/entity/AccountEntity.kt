@@ -19,7 +19,9 @@ data class AccountEntity(
     val isDemoAccount: Boolean,
     val orderIndex: Int,
     val createdAtEpochMs: Long,
-    val lastSuccessfulSyncEpochMs: Long?
+    val lastSuccessfulSyncEpochMs: Long?,
+    val customRenewalDayOfMonth: Int? = null,
+    val customRenewalDateEpochMs: Long? = null
 ) {
     fun toDomain(): CodexAccount {
         return CodexAccount(
@@ -37,7 +39,9 @@ data class AccountEntity(
             isDemoAccount = isDemoAccount,
             orderIndex = orderIndex,
             createdAtEpochMs = createdAtEpochMs,
-            lastSuccessfulSyncEpochMs = lastSuccessfulSyncEpochMs
+            lastSuccessfulSyncEpochMs = lastSuccessfulSyncEpochMs,
+            customRenewalDayOfMonth = customRenewalDayOfMonth,
+            customRenewalDateEpochMs = customRenewalDateEpochMs
         )
     }
 
@@ -54,7 +58,9 @@ data class AccountEntity(
                 isDemoAccount = account.isDemoAccount,
                 orderIndex = account.orderIndex,
                 createdAtEpochMs = account.createdAtEpochMs,
-                lastSuccessfulSyncEpochMs = account.lastSuccessfulSyncEpochMs
+                lastSuccessfulSyncEpochMs = account.lastSuccessfulSyncEpochMs,
+                customRenewalDayOfMonth = account.customRenewalDayOfMonth,
+                customRenewalDateEpochMs = account.customRenewalDateEpochMs
             )
         }
     }

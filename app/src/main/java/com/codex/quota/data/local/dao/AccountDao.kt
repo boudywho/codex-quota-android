@@ -30,8 +30,14 @@ interface AccountDao {
     @Update
     suspend fun update(account: AccountEntity)
 
+    @Query("UPDATE accounts SET nickname = :nickname, colorHex = :colorHex, customRenewalDateEpochMs = :customRenewalDateEpochMs WHERE id = :accountId")
+    suspend fun updateDetails(accountId: String, nickname: String, colorHex: String, customRenewalDateEpochMs: Long?)
+
     @Query("UPDATE accounts SET nickname = :nickname, colorHex = :colorHex WHERE id = :accountId")
     suspend fun updateNicknameAndColor(accountId: String, nickname: String, colorHex: String)
+
+    @Query("UPDATE accounts SET customRenewalDateEpochMs = :renewalDateEpochMs WHERE id = :accountId")
+    suspend fun updateRenewalDate(accountId: String, renewalDateEpochMs: Long?)
 
     @Query("UPDATE accounts SET authStatus = :authStatus, lastSuccessfulSyncEpochMs = :lastSync WHERE id = :accountId")
     suspend fun updateAuthStatusAndSyncTime(accountId: String, authStatus: String, lastSync: Long?)

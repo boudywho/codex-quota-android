@@ -8,9 +8,17 @@ class UpdateAccountUseCase(
     suspend operator fun invoke(
         accountId: String,
         nickname: String,
-        colorHex: String
+        colorHex: String,
+        customRenewalDateEpochMs: Long? = null
     ): Result<Unit> {
         val cleanNickname = nickname.trim().ifBlank { "Codex Account" }
-        return repository.updateAccount(accountId, cleanNickname, colorHex)
+        return repository.updateAccount(accountId, cleanNickname, colorHex, customRenewalDateEpochMs)
+    }
+
+    suspend fun setRenewalDate(
+        accountId: String,
+        renewalDateEpochMs: Long?
+    ): Result<Unit> {
+        return repository.setAccountRenewalDate(accountId, renewalDateEpochMs)
     }
 }

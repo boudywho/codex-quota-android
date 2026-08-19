@@ -11,5 +11,7 @@ data class CodexAccount(
     val isDemoAccount: Boolean,
     val orderIndex: Int,
     val createdAtEpochMs: Long,
-    val lastSuccessfulSyncEpochMs: Long?
+    val lastSuccessfulSyncEpochMs: Long?,
+    val customRenewalDayOfMonth: Int? = null,
+    val customRenewalDateEpochMs: Long? = null
 )

@@ -14,7 +14,7 @@ import com.codex.quota.data.local.entity.UsageSnapshotEntity
         AccountEntity::class,
         UsageSnapshotEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

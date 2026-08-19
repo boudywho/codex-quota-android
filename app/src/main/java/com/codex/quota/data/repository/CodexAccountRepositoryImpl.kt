@@ -116,9 +116,18 @@ class CodexAccountRepositoryImpl(
     override suspend fun updateAccount(
         accountId: String,
         nickname: String,
-        colorHex: String
+        colorHex: String,
+        customRenewalDateEpochMs: Long?
     ): Result<Unit> {
-        accountDao.updateNicknameAndColor(accountId, nickname, colorHex)
+        accountDao.updateDetails(accountId, nickname, colorHex, customRenewalDateEpochMs)
+        return Result.success(Unit)
+    }
+
+    override suspend fun setAccountRenewalDate(
+        accountId: String,
+        renewalDateEpochMs: Long?
+    ): Result<Unit> {
+        accountDao.updateRenewalDate(accountId, renewalDateEpochMs)
         return Result.success(Unit)
     }
 

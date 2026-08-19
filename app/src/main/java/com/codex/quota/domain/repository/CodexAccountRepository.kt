@@ -25,7 +25,13 @@ interface CodexAccountRepository {
     suspend fun updateAccount(
         accountId: String,
         nickname: String,
-        colorHex: String
+        colorHex: String,
+        customRenewalDateEpochMs: Long? = null
+    ): Result<Unit>
+
+    suspend fun setAccountRenewalDate(
+        accountId: String,
+        renewalDateEpochMs: Long?
     ): Result<Unit>
 
     suspend fun reauthenticateAccount(

@@ -18,8 +18,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
@@ -28,6 +31,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -42,12 +47,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,6 +70,7 @@ import com.codex.quota.ui.components.RelativeTimeText
 import com.codex.quota.ui.components.StatusBadge
 import com.codex.quota.ui.theme.Amber500
 import com.codex.quota.ui.theme.Red500
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -80,10 +88,13 @@ fun AccountDetailScreen(
     val uiMessage by viewModel.uiMessage.collectAsState()
     val accountDeleted by viewModel.accountDeleted.collectAsState()
 
+    val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showReauthDialog by remember { mutableStateOf(false) }
+    var showDatePickerDialog by remember { mutableStateOf(false) }
+    var bannerDismissed by remember { mutableStateOf(false) }
 
     LaunchedEffect(accountDeleted) {
         if (accountDeleted) {
@@ -160,6 +171,7 @@ fun AccountDetailScreen(
             val status = usage?.status ?: account.authStatus
             val remainingPercent = usage?.remainingPercent
             val usedPercent = usage?.usedPercent ?: (remainingPercent?.let { (100.0 - it).coerceIn(0.0, 100.0) })
+            val effectiveRenewalEpochMs = account.customRenewalDateEpochMs ?: usage?.subscriptionRenewalEpochMs
 
             LazyColumn(
                 modifier = Modifier
@@ -168,6 +180,87 @@ fun AccountDetailScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Subscription Renewal Setup Banner (if not yet configured)
+                if (effectiveRenewalEpochMs == null && !bannerDismissed) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Event,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Track Subscription Renewal",
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = {
+                                            bannerDismissed = true
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("You can set your renewal date anytime by tapping the ✏️ Edit button.")
+                                            }
+                                        },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Dismiss",
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = "Set when your subscription renews each month to track days remaining and billing cycles.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                                    lineHeight = 18.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Button(
+                                    onClick = { showDatePickerDialog = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarMonth,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Set Renewal Date", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 item {
                     // Main Quota Metric Card
                     Card(
@@ -181,47 +274,40 @@ fun AccountDetailScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(20.dp),
+                                .padding(24.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                StatusBadge(status = status)
-                                Text(
-                                    text = account.planType.displayName,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(20.dp))
+                            StatusBadge(status = status)
+                            Spacer(modifier = Modifier.height(16.dp))
 
                             CircularQuotaGauge(
                                 remainingPercent = remainingPercent,
-                                size = 140.dp,
-                                strokeWidth = 12.dp
+                                size = 160.dp,
+                                strokeWidth = 14.dp
                             )
 
                             Spacer(modifier = Modifier.height(20.dp))
 
-                            // 3-Metric Summary Row
+                            // 3-Metric Summary Box
+                            val resetStr = usage?.rateLimitInfo?.resetRequestsDuration
+                                ?: usage?.rateLimitInfo?.resetTokensDuration
+                                ?: "Active"
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                                     .padding(vertical = 12.dp, horizontal = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceEvenly,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Remaining",
+                                        text = "REMAINING",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -234,15 +320,16 @@ fun AccountDetailScreen(
                                 Box(
                                     modifier = Modifier
                                         .width(1.dp)
-                                        .height(24.dp)
+                                        .height(28.dp)
                                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                                 )
 
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Used",
+                                        text = "USED",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
@@ -255,24 +342,22 @@ fun AccountDetailScreen(
                                 Box(
                                     modifier = Modifier
                                         .width(1.dp)
-                                        .height(24.dp)
+                                        .height(28.dp)
                                         .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                                 )
 
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "Reset In",
+                                        text = "RESET IN",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontWeight = FontWeight.Bold
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
-                                    val resetStr = usage?.rateLimitInfo?.resetRequestsDuration
-                                        ?: usage?.rateLimitInfo?.resetTokensDuration
-                                        ?: "Active"
                                     Text(
                                         text = resetStr,
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.secondary
                                     )
                                 }
                             }
@@ -280,8 +365,8 @@ fun AccountDetailScreen(
                     }
                 }
 
-                // Dedicated Subscription & Renewal Card
-                if (usage?.subscriptionRenewalEpochMs != null) {
+                // Subscription & Renewal Card (shown if configured)
+                if (effectiveRenewalEpochMs != null) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -301,30 +386,29 @@ fun AccountDetailScreen(
                                         text = "Subscription & Renewal",
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                     )
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(MaterialTheme.colorScheme.primaryContainer)
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    IconButton(
+                                        onClick = { showDatePickerDialog = true },
+                                        modifier = Modifier.size(28.dp)
                                     ) {
-                                        Text(
-                                            text = if (usage.willAutoRenew == false) "Expiring" else "Auto-Renews",
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = "Edit Renewal Date",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                val renewalDate = SimpleDateFormat("MMMM d, yyyy 'at' h:mm a", Locale.getDefault())
-                                    .format(Date(usage.subscriptionRenewalEpochMs))
+                                val renewalDate = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
+                                    .format(Date(effectiveRenewalEpochMs))
 
-                                val daysLeft = ((usage.subscriptionRenewalEpochMs - System.currentTimeMillis()) / (1000L * 60 * 60 * 24)).coerceAtLeast(0)
+                                val daysLeft = ((effectiveRenewalEpochMs - System.currentTimeMillis()) / (1000L * 60 * 60 * 24)).coerceAtLeast(0)
 
                                 DetailMetricRow(
                                     label = "Plan Type",
-                                    value = "${account.planType.displayName} (${usage.billingPeriod ?: "Monthly"})"
+                                    value = "${account.planType.displayName} (${usage?.billingPeriod ?: "Monthly"})"
                                 )
 
                                 DetailMetricRow(
@@ -334,7 +418,7 @@ fun AccountDetailScreen(
 
                                 DetailMetricRow(
                                     label = "Auto-Renewal Status",
-                                    value = if (usage.willAutoRenew == false) {
+                                    value = if (usage?.willAutoRenew == false) {
                                         "Manual renewal / Cancels at period end"
                                     } else {
                                         "Active Subscription (Will auto-renew on next cycle)"
@@ -389,7 +473,7 @@ fun AccountDetailScreen(
                     }
                 }
 
-                // Account Metadata & Security Card
+                // Account Metadata & Security Card (Omits "Added to Codex Quota")
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -428,10 +512,6 @@ fun AccountDetailScreen(
                                     value = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(usage.accountCreatedEpochMs))
                                 )
                             }
-                            DetailMetricRow(
-                                label = "Added to Codex Quota",
-                                value = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(account.createdAtEpochMs))
-                            )
                             DetailMetricRow(
                                 label = "Key Encryption & Storage",
                                 value = "Hardware-backed Android Keystore (AES-256-GCM)"
@@ -513,14 +593,62 @@ fun AccountDetailScreen(
                 }
             }
 
+            // Material 3 Date Picker Dialog for Subscription Renewal
+            if (showDatePickerDialog) {
+                val datePickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = effectiveRenewalEpochMs ?: (System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
+                )
+
+                DatePickerDialog(
+                    onDismissRequest = { showDatePickerDialog = false },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                val selectedDate = datePickerState.selectedDateMillis
+                                if (selectedDate != null) {
+                                    viewModel.updateRenewalDate(selectedDate)
+                                }
+                                showDatePickerDialog = false
+                            }
+                        ) {
+                            Text("Save Date")
+                        }
+                    },
+                    dismissButton = {
+                        Row {
+                            if (effectiveRenewalEpochMs != null) {
+                                TextButton(
+                                    onClick = {
+                                        viewModel.updateRenewalDate(null)
+                                        showDatePickerDialog = false
+                                    }
+                                ) {
+                                    Text("Clear", color = Red500)
+                                }
+                            }
+                            TextButton(onClick = { showDatePickerDialog = false }) {
+                                Text("Cancel")
+                            }
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+
             // Edit Nickname & Color Dialog
             if (showEditDialog) {
                 EditAccountDialog(
                     currentNickname = account.nickname,
                     currentColorHex = account.colorHex,
+                    currentRenewalEpochMs = effectiveRenewalEpochMs,
+                    onOpenDatePicker = {
+                        showEditDialog = false
+                        showDatePickerDialog = true
+                    },
                     onDismiss = { showEditDialog = false },
                     onConfirm = { name, color ->
-                        viewModel.updateNicknameAndColor(name, color)
+                        viewModel.updateAccountDetails(name, color, account.customRenewalDateEpochMs)
                         showEditDialog = false
                     }
                 )
@@ -594,6 +722,8 @@ private fun DetailMetricRow(
 private fun EditAccountDialog(
     currentNickname: String,
     currentColorHex: String,
+    currentRenewalEpochMs: Long?,
+    onOpenDatePicker: () -> Unit,
     onDismiss: () -> Unit,
     onConfirm: (String, String) -> Unit
 ) {
@@ -643,6 +773,28 @@ private fun EditAccountDialog(
                                 )
                             }
                         }
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Subscription Renewal", style = MaterialTheme.typography.labelMedium)
+                        Text(
+                            text = if (currentRenewalEpochMs != null) {
+                                SimpleDateFormat("MMMM d, yyyy", Locale.getDefault()).format(Date(currentRenewalEpochMs))
+                            } else "Not set",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(onClick = onOpenDatePicker) {
+                        Text(if (currentRenewalEpochMs != null) "Change" else "Set Date")
                     }
                 }
             }

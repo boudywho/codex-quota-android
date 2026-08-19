@@ -50,13 +50,24 @@ class AccountDetailViewModel(
         }
     }
 
-    fun updateNicknameAndColor(newNickname: String, newColorHex: String) {
+    fun updateAccountDetails(newNickname: String, newColorHex: String, newRenewalDateEpochMs: Long?) {
         viewModelScope.launch {
-            val result = updateAccountUseCase(accountId, newNickname, newColorHex)
+            val result = updateAccountUseCase(accountId, newNickname, newColorHex, newRenewalDateEpochMs)
             if (result.isSuccess) {
                 _uiMessage.value = "Account updated"
             } else {
                 _uiMessage.value = "Failed to update account"
+            }
+        }
+    }
+
+    fun updateRenewalDate(renewalDateEpochMs: Long?) {
+        viewModelScope.launch {
+            val result = updateAccountUseCase.setRenewalDate(accountId, renewalDateEpochMs)
+            if (result.isSuccess) {
+                _uiMessage.value = if (renewalDateEpochMs != null) "Renewal date updated" else "Renewal date removed"
+            } else {
+                _uiMessage.value = "Failed to update renewal date"
             }
         }
     }

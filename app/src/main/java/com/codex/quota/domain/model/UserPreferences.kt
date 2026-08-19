@@ -6,6 +6,17 @@ enum class AppThemeMode {
     DARK
 }
 
+enum class WidgetThemeMode(val displayName: String) {
+    DARK_OBSIDIAN("Codex Dark"),
+    SYSTEM_MATERIAL_YOU("Material You");
+
+    companion object {
+        fun fromString(name: String): WidgetThemeMode {
+            return entries.find { it.name.equals(name, ignoreCase = true) } ?: DARK_OBSIDIAN
+        }
+    }
+}
+
 enum class RefreshIntervalMinutes(val minutes: Long, val label: String) {
     MINUTES_15(15, "15 minutes"),
     MINUTES_30(30, "30 minutes"),
@@ -23,6 +34,7 @@ enum class RefreshIntervalMinutes(val minutes: Long, val label: String) {
 data class UserPreferences(
     val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
+    val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.DARK_OBSIDIAN,
     val refreshInterval: RefreshIntervalMinutes = RefreshIntervalMinutes.MINUTES_30,
     val refreshOnAppOpen: Boolean = true,
     val signedOutNotificationsEnabled: Boolean = true,

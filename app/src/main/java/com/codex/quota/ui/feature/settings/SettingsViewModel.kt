@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.codex.quota.domain.model.AppThemeMode
 import com.codex.quota.domain.model.RefreshIntervalMinutes
 import com.codex.quota.domain.model.UserPreferences
+import com.codex.quota.domain.model.WidgetThemeMode
 import com.codex.quota.domain.repository.CodexAccountRepository
 import com.codex.quota.domain.repository.UserPreferencesRepository
+import com.codex.quota.widget.WidgetUpdateHelper
 import com.codex.quota.worker.WorkScheduler
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +37,13 @@ class SettingsViewModel(
     fun setDynamicColor(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setDynamicColor(enabled)
+        }
+    }
+
+    fun setWidgetThemeMode(context: Context, mode: WidgetThemeMode) {
+        viewModelScope.launch {
+            preferencesRepository.setWidgetThemeMode(mode)
+            WidgetUpdateHelper.updateAllWidgets(context)
         }
     }
 

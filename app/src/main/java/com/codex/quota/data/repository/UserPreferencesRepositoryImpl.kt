@@ -4,6 +4,7 @@ import com.codex.quota.data.local.DataStoreManager
 import com.codex.quota.domain.model.AppThemeMode
 import com.codex.quota.domain.model.RefreshIntervalMinutes
 import com.codex.quota.domain.model.UserPreferences
+import com.codex.quota.domain.model.WidgetThemeMode
 import com.codex.quota.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 
@@ -23,6 +24,10 @@ class UserPreferencesRepositoryImpl(
 
     override suspend fun setDynamicColor(enabled: Boolean) {
         dataStoreManager.setDynamicColor(enabled)
+    }
+
+    override suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {
+        dataStoreManager.setWidgetThemeMode(mode)
     }
 
     override suspend fun setRefreshInterval(interval: RefreshIntervalMinutes) {

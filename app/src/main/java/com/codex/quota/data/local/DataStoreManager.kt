@@ -12,6 +12,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.codex.quota.domain.model.AppThemeMode
 import com.codex.quota.domain.model.RefreshIntervalMinutes
 import com.codex.quota.domain.model.UserPreferences
+import com.codex.quota.domain.model.WidgetThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -23,6 +24,7 @@ class DataStoreManager(private val context: Context) {
     private object PreferencesKeys {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        val WIDGET_THEME_MODE = stringPreferencesKey("widget_theme_mode")
         val REFRESH_INTERVAL = longPreferencesKey("refresh_interval_minutes")
         val REFRESH_ON_APP_OPEN = booleanPreferencesKey("refresh_on_app_open")
         val SIGNED_OUT_NOTIFICATIONS = booleanPreferencesKey("signed_out_notifications_enabled")
@@ -39,11 +41,15 @@ class DataStoreManager(private val context: Context) {
             AppThemeMode.SYSTEM
         }
 
+        val widgetThemeStr = prefs[PreferencesKeys.WIDGET_THEME_MODE] ?: WidgetThemeMode.DARK_OBSIDIAN.name
+        val widgetThemeMode = WidgetThemeMode.fromString(widgetThemeStr)
+
         val refreshIntervalMinutes = prefs[PreferencesKeys.REFRESH_INTERVAL] ?: 30L
 
         UserPreferences(
             themeMode = themeMode,
             dynamicColor = prefs[PreferencesKeys.DYNAMIC_COLOR] ?: true,
+            widgetThemeMode = widgetThemeMode,
             refreshInterval = RefreshIntervalMinutes.fromMinutes(refreshIntervalMinutes),
             refreshOnAppOpen = prefs[PreferencesKeys.REFRESH_ON_APP_OPEN] ?: true,
             signedOutNotificationsEnabled = prefs[PreferencesKeys.SIGNED_OUT_NOTIFICATIONS] ?: true,
@@ -64,6 +70,12 @@ class DataStoreManager(private val context: Context) {
     suspend fun setDynamicColor(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[PreferencesKeys.DYNAMIC_COLOR] = enabled
+        }
+    }
+
+    suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferencesKeys.WIDGET_THEME_MODE] = mode.name
         }
     }
 

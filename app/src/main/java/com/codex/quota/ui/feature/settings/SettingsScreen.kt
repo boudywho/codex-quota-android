@@ -1,5 +1,10 @@
 package com.codex.quota.ui.feature.settings
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +27,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -51,8 +57,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.codex.quota.domain.model.AppThemeMode
 import com.codex.quota.domain.model.RefreshIntervalMinutes
+import com.codex.quota.domain.model.WidgetThemeMode
 import com.codex.quota.ui.theme.Red500
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -65,6 +73,22 @@ fun SettingsScreen(
     val preferences by viewModel.preferencesState.collectAsState()
     val context = LocalContext.current
     var showClearDataDialog by remember { mutableStateOf(false) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    fun checkAndRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val isGranted = ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+            if (!isGranted) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -81,8 +105,8 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Appearance Section
-            SettingsSection(title = "Appearance", icon = Icons.Default.ColorLens) {
-                Text("Theme Mode", style = MaterialTheme.typography.bodyMedium)
+            SettingsSection(title = "Appearance & Theme", icon = Icons.Default.ColorLens) {
+                Text("App Theme", style = MaterialTheme.typography.bodyMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -92,7 +116,8 @@ fun SettingsScreen(
                         FilterChip(
                             selected = preferences.themeMode == mode,
                             onClick = { viewModel.setThemeMode(mode) },
-                            label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                            label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -105,9 +130,9 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Dynamic Colors", style = MaterialTheme.typography.bodyMedium)
+                        Text("Dynamic Colors (Material You)", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            "Material You palette based on wallpaper",
+                            "Adaptive palette based on system wallpaper",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -116,6 +141,24 @@ fun SettingsScreen(
                         checked = preferences.dynamicColor,
                         onCheckedChange = { viewModel.setDynamicColor(it) }
                     )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text("Home-Screen Widget Style", style = MaterialTheme.typography.bodyMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    WidgetThemeMode.entries.forEach { mode ->
+                        FilterChip(
+                            selected = preferences.widgetThemeMode == mode,
+                            onClick = { viewModel.setWidgetThemeMode(context, mode) },
+                            label = { Text(mode.displayName) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
 
@@ -137,7 +180,8 @@ fun SettingsScreen(
                         FilterChip(
                             selected = preferences.refreshInterval == interval,
                             onClick = { viewModel.setRefreshInterval(context, interval) },
-                            label = { Text(interval.label, fontSize = 11.sp) }
+                            label = { Text(interval.label, fontSize = 11.sp) },
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
@@ -181,7 +225,10 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = preferences.signedOutNotificationsEnabled,
-                        onCheckedChange = { viewModel.setSignedOutNotificationsEnabled(it) }
+                        onCheckedChange = {
+                            if (it) checkAndRequestNotificationPermission()
+                            viewModel.setSignedOutNotificationsEnabled(it)
+                        }
                     )
                 }
 
@@ -202,20 +249,31 @@ fun SettingsScreen(
                     }
                     Switch(
                         checked = preferences.quotaAlertsEnabled,
-                        onCheckedChange = { viewModel.setQuotaAlertsEnabled(it) }
+                        onCheckedChange = {
+                            if (it) checkAndRequestNotificationPermission()
+                            viewModel.setQuotaAlertsEnabled(it)
+                        }
                     )
                 }
 
                 if (preferences.quotaAlertsEnabled) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Alert Threshold", style = MaterialTheme.typography.labelMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        "Alert Threshold (Remaining Quota)",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         listOf(5, 10, 25).forEach { threshold ->
                             FilterChip(
                                 selected = preferences.quotaAlertThresholdPercent == threshold,
                                 onClick = { viewModel.setQuotaAlertThreshold(threshold) },
-                                label = { Text("$threshold% remaining") }
+                                label = { Text("≤ $threshold% limit") },
+                                modifier = Modifier.weight(1f)
                             )
                         }
                     }
@@ -227,7 +285,8 @@ fun SettingsScreen(
                 Text(
                     text = "• Zero Telemetry: No analytics, tracking, or remote error reporting.\n• Hardware Encryption: Credentials isolated in Android Keystore AES-256-GCM.\n• No Cloud Relay: App communicates directly with OpenAI APIs exclusively over HTTPS.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 20.sp
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -249,7 +308,7 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onNavigateToAbout() },
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
                 ),
@@ -258,14 +317,14 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("About & Disclaimers", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                        Text("Open-source notices, app version, and legal disclaimer", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("About & Community", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Open-source notices, app version, and GitHub repo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

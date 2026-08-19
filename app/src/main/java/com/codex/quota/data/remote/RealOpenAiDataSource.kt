@@ -20,23 +20,129 @@ class RealOpenAiDataSource(
         val decoded = JwtTokenParser.parseToken(apiKey)
         if (decoded != null) {
             val isExpired = decoded.expiresAtEpochMs != null && decoded.expiresAtEpochMs < now
-            val status = if (isExpired) AuthStatus.AUTHENTICATION_REQUIRED else AuthStatus.AUTHENTICATED
-            val remainingPercent = if (isExpired) 0.0 else 100.0
+            if (isExpired) {
+                val usage = CodexUsage(
+                    accountId = account.id,
+                    remainingPercent = 0.0,
+                    usedPercent = 100.0,
+                    usedTokens = null,
+                    totalLimitTokens = null,
+                    remainingCredits = null,
+                    resetAtEpochMs = decoded.expiresAtEpochMs,
+                    status = AuthStatus.AUTHENTICATION_REQUIRED,
+                    fetchedAtEpochMs = now,
+                    rateLimitInfo = null,
+                    errorMessage = "ChatGPT session token has expired. Please re-authenticate."
+                )
+                return Result.success(usage)
+            }
 
-            val usage = CodexUsage(
-                accountId = account.id,
-                remainingPercent = remainingPercent,
-                usedPercent = if (isExpired) 100.0 else 0.0,
-                usedTokens = null,
-                totalLimitTokens = null,
-                remainingCredits = null,
-                resetAtEpochMs = decoded.expiresAtEpochMs,
-                status = status,
-                fetchedAtEpochMs = now,
-                rateLimitInfo = null,
-                errorMessage = if (isExpired) "ChatGPT session token has expired. Please re-authenticate." else null
-            )
-            return Result.success(usage)
+            // Fetch live ChatGPT subscriber usage and rate limits from chatgpt.com/backend-api/wham/usage
+            val chatgptAccountId = decoded.chatgptAccountId ?: account.organizationId
+            val whamResponse = api.fetchChatGptSubscriberUsage(apiKey, chatgptAccountId)
+
+            when (whamResponse) {
+                is ApiResponse.Success -> {
+                    val whamDto = whamResponse.data
+                    val rateLimit = whamDto.rateLimit
+                    val primaryWindow = rateLimit?.primaryWindow
+                    val secondaryWindow = rateLimit?.secondaryWindow
+
+                    val usedPercent = primaryWindow?.usedPercent ?: secondaryWindow?.usedPercent ?: 0.0
+                    val remainingPercent = (100.0 - usedPercent).coerceIn(0.0, 100.0)
+
+                    val resetAtEpochMs = primaryWindow?.resetAt?.let { it * 1000L }
+                        ?: secondaryWindow?.resetAt?.let { it * 1000L }
+                        ?: decoded.expiresAtEpochMs
+
+                    val isLimitReached = rateLimit?.limitReached == true || primaryWindow?.usedPercent?.let { it >= 100.0 } == true
+                    val status = AuthStatus.AUTHENTICATED
+
+                    val resetDurationFormatted = primaryWindow?.resetAfterSeconds?.let { sec ->
+                        val hours = sec / 3600
+                        val mins = (sec % 3600) / 60
+                        if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+                    }
+
+                    val rateLimitInfo = RateLimitInfo(
+                        limitRequests = primaryWindow?.limitWindowSeconds?.toLong(),
+                        remainingRequests = null,
+                        resetRequestsDuration = resetDurationFormatted,
+                        limitTokens = null,
+                        remainingTokens = null,
+                        resetTokensDuration = null
+                    )
+
+                    val creditsBalance = whamDto.credits?.balance?.toDoubleOrNull()
+
+                    val usage = CodexUsage(
+                        accountId = account.id,
+                        remainingPercent = remainingPercent,
+                        usedPercent = usedPercent,
+                        usedTokens = null,
+                        totalLimitTokens = null,
+                        remainingCredits = creditsBalance,
+                        resetAtEpochMs = resetAtEpochMs,
+                        status = status,
+                        fetchedAtEpochMs = now,
+                        rateLimitInfo = rateLimitInfo,
+                        errorMessage = if (isLimitReached) "Usage limit reached. Resets in $resetDurationFormatted" else null
+                    )
+                    return Result.success(usage)
+                }
+
+                is ApiResponse.HttpError -> {
+                    if (whamResponse.httpCode == 401) {
+                        val usage = CodexUsage(
+                            accountId = account.id,
+                            remainingPercent = 0.0,
+                            usedPercent = 100.0,
+                            usedTokens = null,
+                            totalLimitTokens = null,
+                            remainingCredits = null,
+                            resetAtEpochMs = null,
+                            status = AuthStatus.AUTHENTICATION_REQUIRED,
+                            fetchedAtEpochMs = now,
+                            rateLimitInfo = null,
+                            errorMessage = "Session expired or revoked. Please re-authenticate."
+                        )
+                        return Result.success(usage)
+                    }
+
+                    // Fallback to active subscription window if transient HTTP error
+                    val usage = CodexUsage(
+                        accountId = account.id,
+                        remainingPercent = 100.0,
+                        usedPercent = 0.0,
+                        usedTokens = null,
+                        totalLimitTokens = null,
+                        remainingCredits = null,
+                        resetAtEpochMs = decoded.expiresAtEpochMs,
+                        status = AuthStatus.AUTHENTICATED,
+                        fetchedAtEpochMs = now,
+                        rateLimitInfo = null,
+                        errorMessage = whamResponse.message
+                    )
+                    return Result.success(usage)
+                }
+
+                is ApiResponse.NetworkError -> {
+                    val usage = CodexUsage(
+                        accountId = account.id,
+                        remainingPercent = null,
+                        usedPercent = null,
+                        usedTokens = null,
+                        totalLimitTokens = null,
+                        remainingCredits = null,
+                        resetAtEpochMs = null,
+                        status = AuthStatus.OFFLINE,
+                        fetchedAtEpochMs = now,
+                        rateLimitInfo = null,
+                        errorMessage = whamResponse.exception.message
+                    )
+                    return Result.success(usage)
+                }
+            }
         }
 
         // Platform API Key (sk-...) validation & header rate limits
@@ -44,8 +150,8 @@ class RealOpenAiDataSource(
             is ApiResponse.Success -> {
                 val limits = response.rateLimits
                 val rateLimitInfo = RateLimitInfo(
-                    limitRequests = limits.limitRequests,
-                    remainingRequests = limits.remainingRequests,
+                    limitRequests = limits.limitRequests?.toLong(),
+                    remainingRequests = limits.remainingRequests?.toLong(),
                     resetRequestsDuration = limits.resetRequests,
                     limitTokens = limits.limitTokens,
                     remainingTokens = limits.remainingTokens,
@@ -100,8 +206,8 @@ class RealOpenAiDataSource(
                     fetchedAtEpochMs = now,
                     rateLimitInfo = response.rateLimits?.let {
                         RateLimitInfo(
-                            limitRequests = it.limitRequests,
-                            remainingRequests = it.remainingRequests,
+                            limitRequests = it.limitRequests?.toLong(),
+                            remainingRequests = it.remainingRequests?.toLong(),
                             resetRequestsDuration = it.resetRequests,
                             limitTokens = it.limitTokens,
                             remainingTokens = it.remainingTokens,

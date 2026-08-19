@@ -9,8 +9,9 @@ data class DecodedTokenInfo(
     val email: String?,
     val userId: String?,
     val organizationId: String?,
-    val planType: PlanType,
-    val expiresAtEpochMs: Long?,
+    val chatgptAccountId: String? = null,
+    val planType: PlanType = PlanType.PLUS,
+    val expiresAtEpochMs: Long? = null,
     val name: String? = null,
     val rawClaims: Map<String, Any?> = emptyMap()
 )
@@ -33,6 +34,7 @@ object JwtTokenParser {
             var userId = json.optString("sub").takeIf { it.isNotEmpty() }
             var planType = PlanType.PLUS
             var orgId: String? = null
+            var chatgptAccountId: String? = null
             var name = json.optString("name").takeIf { it.isNotEmpty() }
 
             val expSeconds = json.optLong("exp", 0L)
@@ -47,6 +49,10 @@ object JwtTokenParser {
                     "team" -> PlanType.TEAM
                     "enterprise" -> PlanType.ENTERPRISE
                     else -> PlanType.PLUS
+                }
+
+                if (openAiAuth.has("chatgpt_account_id")) {
+                    chatgptAccountId = openAiAuth.optString("chatgpt_account_id").takeIf { it.isNotEmpty() }
                 }
 
                 if (openAiAuth.has("poid")) {
@@ -83,6 +89,7 @@ object JwtTokenParser {
                 email = email,
                 userId = userId,
                 organizationId = orgId,
+                chatgptAccountId = chatgptAccountId,
                 planType = planType,
                 expiresAtEpochMs = expiresAtEpochMs,
                 name = name

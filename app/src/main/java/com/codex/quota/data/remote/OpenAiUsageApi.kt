@@ -1,5 +1,6 @@
 package com.codex.quota.data.remote
 
+import com.codex.quota.data.remote.dto.ChatGptWhamUsageDto
 import com.codex.quota.data.remote.dto.OpenAiModelsResponseDto
 import com.codex.quota.data.remote.dto.ParsedRateLimits
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,7 @@ class OpenAiUsageApi(
         val requestBuilder = Request.Builder()
             .url("https://api.openai.com/v1/models")
             .header("Authorization", "Bearer $apiKey")
-            .header("User-Agent", "CodexQuota-Android/1.0")
+            .header("User-Agent", "CodexQuota-Android/1.0 (Android; Mobile)")
 
         if (!organizationId.isNullOrBlank()) {
             requestBuilder.header("OpenAI-Organization", organizationId)
@@ -65,6 +66,51 @@ class OpenAiUsageApi(
                     403 -> "Access forbidden for this organization or project."
                     429 -> "Rate limit or quota threshold reached."
                     in 500..599 -> "OpenAI servers are temporarily unavailable ($code)."
+                    else -> "HTTP $code: $bodyString"
+                }
+                ApiResponse.HttpError(code, errorMsg, rateLimits)
+            }
+        } catch (e: IOException) {
+            ApiResponse.NetworkError(e)
+        } catch (e: Exception) {
+            ApiResponse.NetworkError(e)
+        }
+    }
+
+    suspend fun fetchChatGptSubscriberUsage(
+        accessToken: String,
+        chatgptAccountId: String? = null
+    ): ApiResponse<ChatGptWhamUsageDto> = withContext(Dispatchers.IO) {
+        val cleanToken = accessToken.trim().removePrefix("Bearer ").removePrefix("bearer ")
+        val requestBuilder = Request.Builder()
+            .url("https://chatgpt.com/backend-api/wham/usage")
+            .header("Authorization", "Bearer $cleanToken")
+            .header("User-Agent", "CodexQuota-Android/1.0 (Android; Mobile)")
+            .header("Accept", "application/json")
+
+        if (!chatgptAccountId.isNullOrBlank()) {
+            requestBuilder.header("ChatGPT-Account-ID", chatgptAccountId)
+        }
+
+        try {
+            val response: Response = client.newCall(requestBuilder.build()).execute()
+            val rateLimits = ParsedRateLimits.fromHeaders(response.headers)
+            val code = response.code
+            val bodyString = response.body?.string().orEmpty()
+
+            if (response.isSuccessful && bodyString.isNotBlank()) {
+                try {
+                    val dto = json.decodeFromString<ChatGptWhamUsageDto>(bodyString)
+                    ApiResponse.Success(dto, rateLimits, code)
+                } catch (e: Exception) {
+                    ApiResponse.NetworkError(e)
+                }
+            } else {
+                val errorMsg = when (code) {
+                    401 -> "ChatGPT subscriber session expired. Please re-authenticate."
+                    403 -> "ChatGPT access forbidden."
+                    429 -> "Usage rate limit reached."
+                    in 500..599 -> "ChatGPT servers temporarily unavailable ($code)."
                     else -> "HTTP $code: $bodyString"
                 }
                 ApiResponse.HttpError(code, errorMsg, rateLimits)

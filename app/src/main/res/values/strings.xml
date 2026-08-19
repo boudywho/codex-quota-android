@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">Codex Quota</string>
+    <string name="app_description">Monitor multi-account OpenAI Codex usage, token limits, and quota resets.</string>
+    <string name="disclaimer">Codex Quota is an independent, open-source utility and is not affiliated with, maintained, authorized, sponsored, or endorsed by OpenAI.</string>
+    <string name="channel_auth_name">Account Authentication Alerts</string>
+    <string name="channel_auth_description">Alerts when a Codex account becomes signed out or credentials expire.</string>
+    <string name="channel_quota_name">Quota Threshold Alerts</string>
+    <string name="channel_quota_description">Alerts when an account usage crosses configured quota limits.</string>
+    <string name="widget_small_name">Codex Quota (Compact)</string>
+    <string name="widget_medium_name">Codex Quota (Standard)</string>
+    <string name="widget_multi_name">Codex Quota (Multi-Account)</string>
+</resources>

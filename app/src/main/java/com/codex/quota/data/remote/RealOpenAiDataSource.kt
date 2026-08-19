@@ -4,7 +4,6 @@ import com.codex.quota.auth.JwtTokenParser
 import com.codex.quota.domain.model.AuthStatus
 import com.codex.quota.domain.model.CodexAccount
 import com.codex.quota.domain.model.CodexUsage
-import com.codex.quota.domain.model.PlanType
 import com.codex.quota.domain.model.RateLimitInfo
 
 class RealOpenAiDataSource(
@@ -17,26 +16,30 @@ class RealOpenAiDataSource(
     ): Result<CodexUsage> {
         val now = System.currentTimeMillis()
 
-        // Check if token is a JWT and if it has expired locally
+        // Check if token is a ChatGPT Subscriber OAuth/Session JWT token
         val decoded = JwtTokenParser.parseToken(apiKey)
-        if (decoded?.expiresAtEpochMs != null && decoded.expiresAtEpochMs < now) {
-            return Result.success(
-                CodexUsage(
-                    accountId = account.id,
-                    remainingPercent = 0.0,
-                    usedPercent = 100.0,
-                    usedTokens = null,
-                    totalLimitTokens = null,
-                    remainingCredits = null,
-                    resetAtEpochMs = null,
-                    status = AuthStatus.AUTHENTICATION_REQUIRED,
-                    fetchedAtEpochMs = now,
-                    rateLimitInfo = null,
-                    errorMessage = "OAuth / Session token has expired. Please sign in again."
-                )
+        if (decoded != null) {
+            val isExpired = decoded.expiresAtEpochMs != null && decoded.expiresAtEpochMs < now
+            val status = if (isExpired) AuthStatus.AUTHENTICATION_REQUIRED else AuthStatus.AUTHENTICATED
+            val remainingPercent = if (isExpired) 0.0 else 100.0
+
+            val usage = CodexUsage(
+                accountId = account.id,
+                remainingPercent = remainingPercent,
+                usedPercent = if (isExpired) 100.0 else 0.0,
+                usedTokens = null,
+                totalLimitTokens = null,
+                remainingCredits = null,
+                resetAtEpochMs = decoded.expiresAtEpochMs,
+                status = status,
+                fetchedAtEpochMs = now,
+                rateLimitInfo = null,
+                errorMessage = if (isExpired) "ChatGPT session token has expired. Please re-authenticate." else null
             )
+            return Result.success(usage)
         }
 
+        // Platform API Key (sk-...) validation & header rate limits
         return when (val response = api.checkAuthenticationAndFetchRateLimits(apiKey, account.organizationId)) {
             is ApiResponse.Success -> {
                 val limits = response.rateLimits
@@ -49,15 +52,9 @@ class RealOpenAiDataSource(
                     resetTokensDuration = limits.resetTokens
                 )
 
-                var remainingPercent: Double? = rateLimitInfo.tokenRemainingPercent
+                val remainingPercent: Double? = rateLimitInfo.tokenRemainingPercent
                     ?: rateLimitInfo.requestRemainingPercent
-
-                // If this is a ChatGPT Plus or Team subscription token, calculate default rolling window quotas
-                if (remainingPercent == null && (account.planType == PlanType.PLUS || account.planType == PlanType.TEAM)) {
-                    remainingPercent = 85.0 // Active subscriber quota
-                } else if (remainingPercent == null) {
-                    remainingPercent = 100.0
-                }
+                    ?: 100.0
 
                 val usedPercent: Double? = remainingPercent?.let { (100.0 - it).coerceIn(0.0, 100.0) }
 

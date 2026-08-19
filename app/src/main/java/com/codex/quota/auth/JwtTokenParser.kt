@@ -2,71 +2,109 @@ package com.codex.quota.auth
 
 import android.util.Base64
 import com.codex.quota.domain.model.PlanType
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
+import org.json.JSONObject
+import java.nio.charset.StandardCharsets
 
 data class DecodedTokenInfo(
     val email: String?,
+    val userId: String?,
+    val organizationId: String?,
     val planType: PlanType,
     val expiresAtEpochMs: Long?,
-    val userId: String?,
-    val organizationId: String?
+    val name: String? = null,
+    val rawClaims: Map<String, Any?> = emptyMap()
 )
 
 object JwtTokenParser {
 
-    private val json = Json { ignoreUnknownKeys = true }
-
     fun parseToken(token: String): DecodedTokenInfo? {
-        val cleanToken = token.trim().removePrefix("Bearer ").trim()
+        val cleanToken = token.trim().removePrefix("Bearer ").removePrefix("bearer ")
         val parts = cleanToken.split(".")
         if (parts.size < 2) {
-            // Not a JWT token; might be opaque session token or API key
             return null
         }
 
-        return try {
-            val payloadBase64 = parts[1]
-            val decodedBytes = Base64.decode(
-                payloadBase64,
-                Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP
-            )
-            val payloadString = String(decodedBytes, Charsets.UTF_8)
-            val jsonObject = json.decodeFromString<JsonObject>(payloadString)
+        try {
+            val payloadBytes = decodeBase64Url(parts[1]) ?: return null
+            val payloadJson = String(payloadBytes, StandardCharsets.UTF_8)
+            val json = JSONObject(payloadJson)
 
-            val email = jsonObject["email"]?.jsonPrimitive?.content
-                ?: jsonObject["https://api.openai.com/profile"]?.toString()
+            var email = json.optString("email").takeIf { it.isNotEmpty() }
+            var userId = json.optString("sub").takeIf { it.isNotEmpty() }
+            var planType = PlanType.PLUS
+            var orgId: String? = null
+            var name = json.optString("name").takeIf { it.isNotEmpty() }
 
-            val expSeconds = jsonObject["exp"]?.jsonPrimitive?.longOrNull
-            val expEpochMs = expSeconds?.let { it * 1000L }
+            val expSeconds = json.optLong("exp", 0L)
+            val expiresAtEpochMs = if (expSeconds > 0) expSeconds * 1000L else null
 
-            val userId = jsonObject["sub"]?.jsonPrimitive?.content
-                ?: jsonObject["user_id"]?.jsonPrimitive?.content
+            // Parse OpenAI specific auth claims: "https://api.openai.com/auth"
+            val openAiAuth = json.optJSONObject("https://api.openai.com/auth")
+            if (openAiAuth != null) {
+                val planStr = openAiAuth.optString("chatgpt_plan_type", "plus")
+                planType = when (planStr.lowercase()) {
+                    "plus" -> PlanType.PLUS
+                    "team" -> PlanType.TEAM
+                    "enterprise" -> PlanType.ENTERPRISE
+                    else -> PlanType.PLUS
+                }
 
-            val orgId = jsonObject["org_id"]?.jsonPrimitive?.content
-                ?: jsonObject["https://api.openai.com/auth"]?.toString()
+                if (openAiAuth.has("poid")) {
+                    orgId = openAiAuth.optString("poid").takeIf { it.isNotEmpty() }
+                }
 
-            // Infer plan type from token claims (e.g. chatgpt_plus, chatgpt_team, enterprise)
-            val payloadLower = payloadString.lowercase()
-            val planType = when {
-                payloadLower.contains("team") -> PlanType.TEAM
-                payloadLower.contains("enterprise") -> PlanType.ENTERPRISE
-                payloadLower.contains("plus") || payloadLower.contains("chatgpt") -> PlanType.PLUS
-                else -> PlanType.PLUS
+                if (openAiAuth.has("organizations")) {
+                    val orgsArray = openAiAuth.optJSONArray("organizations")
+                    if (orgsArray != null && orgsArray.length() > 0) {
+                        val firstOrg = orgsArray.getJSONObject(0)
+                        if (orgId == null) {
+                            orgId = firstOrg.optString("id").takeIf { it.isNotEmpty() }
+                        }
+                    }
+                }
+
+                if (openAiAuth.has("chatgpt_user_id")) {
+                    userId = openAiAuth.optString("chatgpt_user_id")
+                }
             }
 
-            DecodedTokenInfo(
+            // Parse profile claims: "https://api.openai.com/profile"
+            val openAiProfile = json.optJSONObject("https://api.openai.com/profile")
+            if (openAiProfile != null) {
+                if (email == null) {
+                    email = openAiProfile.optString("email").takeIf { it.isNotEmpty() }
+                }
+                if (name == null) {
+                    name = openAiProfile.optString("name").takeIf { it.isNotEmpty() }
+                }
+            }
+
+            return DecodedTokenInfo(
                 email = email,
-                planType = planType,
-                expiresAtEpochMs = expEpochMs,
                 userId = userId,
-                organizationId = orgId
+                organizationId = orgId,
+                planType = planType,
+                expiresAtEpochMs = expiresAtEpochMs,
+                name = name
             )
         } catch (e: Exception) {
-            null
+            return null
+        }
+    }
+
+    private fun decodeBase64Url(input: String): ByteArray? {
+        return try {
+            Base64.decode(input, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
+        } catch (e: Exception) {
+            try {
+                var padded = input
+                while (padded.length % 4 != 0) {
+                    padded += "="
+                }
+                Base64.decode(padded, Base64.DEFAULT)
+            } catch (e2: Exception) {
+                null
+            }
         }
     }
 }

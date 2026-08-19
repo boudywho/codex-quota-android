@@ -22,9 +22,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.OpenInBrowser
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -61,6 +64,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -68,6 +72,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.codex.quota.domain.model.PlanType
+import com.codex.quota.ui.theme.Emerald500
 import com.codex.quota.ui.theme.Red500
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,6 +87,12 @@ fun AddAccountScreen(
     var selectedTab by remember { mutableIntStateOf(0) }
     var passwordVisible by remember { mutableStateOf(false) }
     var planDropdownExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == 0) {
+            viewModel.initDeviceAuth()
+        }
+    }
 
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
@@ -118,12 +129,12 @@ fun AddAccountScreen(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("ChatGPT OAuth / Token", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text("ChatGPT Device Code", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("API Key", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+                    text = { Text("API Key / Token", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
                 )
                 Tab(
                     selected = selectedTab == 2,
@@ -140,92 +151,189 @@ fun AddAccountScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 if (selectedTab == 0) {
-                    // ChatGPT OAuth & Session Token Tab
+                    // ChatGPT Device Code Auth (similar to codex login --device-auth)
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp),
+                        shape = RoundedCornerShape(20.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                     ) {
-                        Column(modifier = Modifier.padding(18.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp)
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Default.OpenInBrowser,
+                                    imageVector = Icons.Default.Devices,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(22.dp)
+                                    modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(
-                                    text = "Sign In with OpenAI (OAuth 2.0 PKCE)",
-                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    text = "ChatGPT Device Code Authorization",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
                             Text(
-                                text = "Sign in directly with your ChatGPT Plus, Team, or Enterprise subscription account using PKCE browser authentication.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 18.sp
+                                text = "Follow these steps to sign in with ChatGPT using device code authorization (same as Codex CLI):",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 20.sp
                             )
-                            Spacer(modifier = Modifier.height(14.dp))
-                            Button(
-                                onClick = { viewModel.startOAuthSignIn(context) },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp)
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Step 1: Open link
+                            Text(
+                                text = "1. Open this link in your browser and sign in:",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Authenticate via OpenAI OAuth", fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = "https://auth.openai.com/codex/device",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { viewModel.openDeviceAuthUrl(context) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.OpenInBrowser,
+                                        contentDescription = "Open Link",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Step 2: Enter code
+                            Text(
+                                text = "2. Enter this one-time code (expires in 15 minutes):",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            val session = state.deviceSession
+                            val userCode = session?.userCode ?: "..."
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                if (state.isRequestingDeviceCode) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    Text("Generating code...", style = MaterialTheme.typography.bodyMedium)
+                                } else {
+                                    Text(
+                                        text = userCode,
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontFamily = FontFamily.Monospace,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 2.sp
+                                        ),
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+
+                                    Button(
+                                        onClick = { viewModel.copyDeviceCode(context) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = ButtonDefaults.ButtonWithIconContentPadding
+                                    ) {
+                                        Icon(
+                                            imageVector = if (state.deviceCodeCopied) Icons.Default.Check else Icons.Default.ContentCopy,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(if (state.deviceCodeCopied) "Copied" else "Copy Code", fontSize = 12.sp)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Polling status row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (state.isPollingDeviceCode) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(16.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Text(
+                                    text = state.deviceStatusMessage ?: "Waiting for browser approval...",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { viewModel.openDeviceAuthUrl(context) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.OpenInBrowser, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Open Page")
+                                }
+
+                                Button(
+                                    onClick = { viewModel.completeDeviceAuthManually() },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("I Authorized")
+                                }
                             }
                         }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)))
-                        Text(
-                            text = " OR PASTE TOKEN ",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        )
-                        Box(modifier = Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)))
-                    }
-
-                    // Account Nickname
+                    // Optional nickname and color for the device account
                     OutlinedTextField(
                         value = state.nickname,
                         onValueChange = { viewModel.onNicknameChange(it) },
-                        label = { Text("Account Nickname") },
-                        placeholder = { Text("e.g. My ChatGPT Plus") },
+                        label = { Text("Account Nickname (Optional)") },
+                        placeholder = { Text("e.g. Personal ChatGPT Plus") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-
-                    // Token input
-                    OutlinedTextField(
-                        value = state.apiKey,
-                        onValueChange = { viewModel.onApiKeyChange(it) },
-                        label = { Text("OAuth / Session / Bearer Token") },
-                        placeholder = { Text("sess-... or eyJ...") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                    contentDescription = null
-                                )
-                            }
-                        },
                         shape = RoundedCornerShape(12.dp)
                     )
 
@@ -267,39 +375,13 @@ fun AddAccountScreen(
                         onColorSelected = { viewModel.onColorChange(it) }
                     )
 
-                    if (state.errorMessage != null) {
-                        Text(
-                            text = state.errorMessage!!,
-                            color = Red500,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-
-                    Button(
-                        onClick = { viewModel.submitAccount(isDemo = false) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        enabled = !state.isLoading
-                    ) {
-                        if (state.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(22.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text("Save Account & Track Quota", fontWeight = FontWeight.Bold)
-                        }
-                    }
                 } else if (selectedTab == 1) {
-                    // API Key Tab
+                    // API Key / Direct Token Tab
                     OutlinedTextField(
                         value = state.nickname,
                         onValueChange = { viewModel.onNicknameChange(it) },
                         label = { Text("Account Nickname") },
-                        placeholder = { Text("e.g. Work API Key") },
+                        placeholder = { Text("e.g. Work API Key / Plus Token") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp)
@@ -308,8 +390,8 @@ fun AddAccountScreen(
                     OutlinedTextField(
                         value = state.apiKey,
                         onValueChange = { viewModel.onApiKeyChange(it) },
-                        label = { Text("OpenAI API Key") },
-                        placeholder = { Text("sk-...") },
+                        label = { Text("OpenAI API Key or Session Token") },
+                        placeholder = { Text("sk-... or sess-... or eyJ...") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -356,6 +438,9 @@ fun AddAccountScreen(
                             onDismissRequest = { planDropdownExpanded = false }
                         ) {
                             listOf(
+                                PlanType.PLUS,
+                                PlanType.TEAM,
+                                PlanType.ENTERPRISE,
                                 PlanType.API_TIER_1,
                                 PlanType.API_TIER_2,
                                 PlanType.API_TIER_5
@@ -451,7 +536,7 @@ fun AddAccountScreen(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Credentials are encrypted with AES-256-GCM hardware keys and isolated per account.",
+                            text = "Used exclusively for reading quota limits. Credentials are encrypted with AES-256-GCM hardware keys.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )

@@ -156,6 +156,7 @@ fun AppNavigation(
                     AccountDetailViewModel(
                         accountId = accountId,
                         repository = app.repository,
+                        preferencesRepository = app.preferencesRepository,
                         refreshAccountUseCase = RefreshAccountUseCase(app.repository),
                         updateAccountUseCase = UpdateAccountUseCase(app.repository),
                         removeAccountUseCase = RemoveAccountUseCase(app.repository)

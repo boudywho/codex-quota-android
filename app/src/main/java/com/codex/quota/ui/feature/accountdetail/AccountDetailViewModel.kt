@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.codex.quota.domain.model.AccountWithUsage
 import com.codex.quota.domain.model.CodexUsage
 import com.codex.quota.domain.repository.CodexAccountRepository
+import com.codex.quota.domain.repository.UserPreferencesRepository
 import com.codex.quota.domain.usecase.RefreshAccountUseCase
 import com.codex.quota.domain.usecase.RemoveAccountUseCase
 import com.codex.quota.domain.usecase.UpdateAccountUseCase
@@ -12,12 +13,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class AccountDetailViewModel(
     private val accountId: String,
     private val repository: CodexAccountRepository,
+    private val preferencesRepository: UserPreferencesRepository,
     private val refreshAccountUseCase: RefreshAccountUseCase,
     private val updateAccountUseCase: UpdateAccountUseCase,
     private val removeAccountUseCase: RemoveAccountUseCase
@@ -28,6 +31,14 @@ class AccountDetailViewModel(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
+        )
+
+    val isBannerDismissed: StateFlow<Boolean> = preferencesRepository.observePreferences()
+        .map { it.dismissedRenewalBannerAccountIds.contains(accountId) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
         )
 
     private val _isRefreshing = MutableStateFlow(false)
@@ -47,6 +58,12 @@ class AccountDetailViewModel(
             if (result.isFailure) {
                 _uiMessage.value = result.exceptionOrNull()?.message ?: "Failed to refresh account"
             }
+        }
+    }
+
+    fun dismissRenewalBanner() {
+        viewModelScope.launch {
+            preferencesRepository.setRenewalBannerDismissed(accountId, true)
         }
     }
 

@@ -18,4 +18,5 @@ interface UserPreferencesRepository {
     suspend fun setQuotaAlertsEnabled(enabled: Boolean)
     suspend fun setQuotaAlertThresholdPercent(threshold: Int)
     suspend fun setHasCompletedOnboarding(completed: Boolean)
+    suspend fun setRenewalBannerDismissed(accountId: String, dismissed: Boolean = true)
 }

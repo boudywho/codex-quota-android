@@ -53,4 +53,8 @@ class UserPreferencesRepositoryImpl(
     override suspend fun setHasCompletedOnboarding(completed: Boolean) {
         dataStoreManager.setHasCompletedOnboarding(completed)
     }
+
+    override suspend fun setRenewalBannerDismissed(accountId: String, dismissed: Boolean) {
+        dataStoreManager.setRenewalBannerDismissed(accountId, dismissed)
+    }
 }

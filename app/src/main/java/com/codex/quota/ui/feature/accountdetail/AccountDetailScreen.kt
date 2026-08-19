@@ -90,11 +90,11 @@ fun AccountDetailScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val isBannerDismissed by viewModel.isBannerDismissed.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showEditDialog by remember { mutableStateOf(false) }
     var showReauthDialog by remember { mutableStateOf(false) }
     var showDatePickerDialog by remember { mutableStateOf(false) }
-    var bannerDismissed by remember { mutableStateOf(false) }
 
     LaunchedEffect(accountDeleted) {
         if (accountDeleted) {
@@ -111,7 +111,16 @@ fun AccountDetailScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                androidx.compose.material3.Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shape = RoundedCornerShape(16.dp)
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = {
@@ -180,8 +189,8 @@ fun AccountDetailScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Subscription Renewal Setup Banner (if not yet configured)
-                if (effectiveRenewalEpochMs == null && !bannerDismissed) {
+                // Subscription Renewal Setup Banner (if not yet configured and not dismissed)
+                if (effectiveRenewalEpochMs == null && !isBannerDismissed) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -216,7 +225,7 @@ fun AccountDetailScreen(
                                     }
                                     IconButton(
                                         onClick = {
-                                            bannerDismissed = true
+                                            viewModel.dismissRenewalBanner()
                                             coroutineScope.launch {
                                                 snackbarHostState.showSnackbar("You can set your renewal date anytime by tapping the ✏️ Edit button.")
                                             }

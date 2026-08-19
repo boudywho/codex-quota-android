@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.codex.quota.domain.model.AppThemeMode
 import com.codex.quota.domain.model.RefreshIntervalMinutes
@@ -31,6 +32,7 @@ class DataStoreManager(private val context: Context) {
         val QUOTA_ALERTS_ENABLED = booleanPreferencesKey("quota_alerts_enabled")
         val QUOTA_ALERT_THRESHOLD = intPreferencesKey("quota_alert_threshold_percent")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+        val DISMISSED_RENEWAL_BANNERS = stringSetPreferencesKey("dismissed_renewal_banners")
     }
 
     val userPreferencesFlow: Flow<UserPreferences> = context.dataStore.data.map { prefs ->
@@ -55,7 +57,8 @@ class DataStoreManager(private val context: Context) {
             signedOutNotificationsEnabled = prefs[PreferencesKeys.SIGNED_OUT_NOTIFICATIONS] ?: true,
             quotaAlertsEnabled = prefs[PreferencesKeys.QUOTA_ALERTS_ENABLED] ?: true,
             quotaAlertThresholdPercent = prefs[PreferencesKeys.QUOTA_ALERT_THRESHOLD] ?: 10,
-            hasCompletedOnboarding = prefs[PreferencesKeys.ONBOARDING_COMPLETED] ?: false
+            hasCompletedOnboarding = prefs[PreferencesKeys.ONBOARDING_COMPLETED] ?: false,
+            dismissedRenewalBannerAccountIds = prefs[PreferencesKeys.DISMISSED_RENEWAL_BANNERS] ?: emptySet()
         )
     }
 
@@ -112,6 +115,17 @@ class DataStoreManager(private val context: Context) {
     suspend fun setHasCompletedOnboarding(completed: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[PreferencesKeys.ONBOARDING_COMPLETED] = completed
+        }
+    }
+
+    suspend fun setRenewalBannerDismissed(accountId: String, dismissed: Boolean = true) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[PreferencesKeys.DISMISSED_RENEWAL_BANNERS] ?: emptySet()
+            prefs[PreferencesKeys.DISMISSED_RENEWAL_BANNERS] = if (dismissed) {
+                current + accountId
+            } else {
+                current - accountId
+            }
         }
     }
 }

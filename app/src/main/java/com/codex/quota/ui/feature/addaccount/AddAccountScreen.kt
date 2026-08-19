@@ -88,12 +88,6 @@ fun AddAccountScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var planDropdownExpanded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedTab) {
-        if (selectedTab == 0) {
-            viewModel.initDeviceAuth()
-        }
-    }
-
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
             onNavigateBack()
@@ -111,6 +105,13 @@ fun AddAccountScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
+                    }
+                },
+                actions = {
+                    if (selectedTab == 0) {
+                        IconButton(onClick = { viewModel.initDeviceAuth(forceRefresh = true) }) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Generate New Code")
+                        }
                     }
                 }
             )
@@ -165,24 +166,42 @@ fun AddAccountScreen(
                                 .fillMaxWidth()
                                 .padding(20.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Devices,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "ChatGPT Device Code Authorization",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.Devices,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "ChatGPT Device Code",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { viewModel.initDeviceAuth(forceRefresh = true) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Refresh Code",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Text(
-                                text = "Follow these steps to sign in with ChatGPT using device code authorization (same as Codex CLI):",
+                                text = "Follow these steps to sign in with ChatGPT using device code authorization:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 20.sp
@@ -192,7 +211,7 @@ fun AddAccountScreen(
 
                             // Step 1: Open link
                             Text(
-                                text = "1. Open this link in your browser and sign in:",
+                                text = "1. Open this link in your browser and sign in to your account",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
@@ -202,7 +221,8 @@ fun AddAccountScreen(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(MaterialTheme.colorScheme.surface)
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    .clickable { viewModel.openDeviceAuthUrl(context) }
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
@@ -211,30 +231,25 @@ fun AddAccountScreen(
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.weight(1f)
                                 )
-                                IconButton(
-                                    onClick = { viewModel.openDeviceAuthUrl(context) },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.OpenInBrowser,
-                                        contentDescription = "Open Link",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Default.OpenInBrowser,
+                                    contentDescription = "Open Link",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
 
                             // Step 2: Enter code
+                            val session = state.deviceSession
+                            val userCode = session?.userCode ?: ""
+
                             Text(
-                                text = "2. Enter this one-time code (expires in 15 minutes):",
+                                text = "2. Enter this one-time code (expires in 15 minutes)",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
-
-                            val session = state.deviceSession
-                            val userCode = session?.userCode ?: "..."
 
                             Row(
                                 modifier = Modifier
@@ -245,9 +260,12 @@ fun AddAccountScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                if (state.isRequestingDeviceCode) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                    Text("Generating code...", style = MaterialTheme.typography.bodyMedium)
+                                if (state.isRequestingDeviceCode || userCode.isBlank()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text("Requesting code from OpenAI...", style = MaterialTheme.typography.bodySmall)
+                                    }
                                 } else {
                                     Text(
                                         text = userCode,

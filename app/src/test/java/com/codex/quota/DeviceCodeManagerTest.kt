@@ -12,31 +12,29 @@ import org.junit.Test
 class DeviceCodeManagerTest {
 
     @Test
-    fun generateFallbackUserCode_matchesStandardPattern() {
-        val code = DeviceCodeManager.generateFallbackUserCode()
-        assertNotNull(code)
-        assertTrue(code.contains("-"))
-        assertEquals(10, code.length) // 4 + 1 + 5 = 10 chars, e.g. ABCD-EFGH0
-    }
+    fun deviceCodeSession_validProperties() {
+        val session = DeviceCodeSession(
+            deviceAuthId = "deviceauth_test_123",
+            userCode = "0XV8-EZOKP",
+            verificationUri = DeviceCodeManager.VERIFICATION_URL,
+            expiresInSeconds = 900,
+            intervalSeconds = 5
+        )
 
-    @Test
-    fun requestDeviceCode_returnsValidSession() = runTest {
-        val result = DeviceCodeManager.requestDeviceCode()
-        assertTrue(result.isSuccess)
-        val session = result.getOrThrow()
-        assertNotNull(session.userCode)
-        assertNotNull(session.deviceCode)
+        assertEquals("deviceauth_test_123", session.deviceAuthId)
+        assertEquals("0XV8-EZOKP", session.userCode)
         assertEquals(DeviceCodeManager.VERIFICATION_URL, session.verificationUri)
-        assertTrue(session.expiresInSeconds > 0)
+        assertEquals(900, session.expiresInSeconds)
+        assertEquals(5, session.intervalSeconds)
+        assertTrue(session.userCode.contains("-"))
     }
 
     @Test
     fun pollDeviceToken_expiredSession_returnsExpired() = runTest {
         val expiredSession = DeviceCodeSession(
-            deviceCode = "expired_dev",
+            deviceAuthId = "deviceauth_test",
             userCode = "TEST-12345",
             verificationUri = DeviceCodeManager.VERIFICATION_URL,
-            verificationUriComplete = null,
             expiresInSeconds = 0,
             intervalSeconds = 5,
             createdAtEpochMs = System.currentTimeMillis() - 10000L

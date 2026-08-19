@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.codex.quota.auth.DecodedTokenInfo
 import com.codex.quota.auth.DeviceCodeManager
 import com.codex.quota.auth.DeviceCodeSession
 import com.codex.quota.auth.DevicePollResult
@@ -63,6 +62,11 @@ class AddAccountViewModel(
         "#E11D48"  // Rose
     )
 
+    init {
+        // Automatically request official OpenAI Device Code on ViewModel initialization
+        initDeviceAuth(forceRefresh = true)
+    }
+
     fun onNicknameChange(value: String) {
         _uiState.update { it.copy(nickname = value, errorMessage = null) }
     }
@@ -99,13 +103,14 @@ class AddAccountViewModel(
         _uiState.update { it.copy(selectedColorHex = value) }
     }
 
-    // --- Device Code Flow ---
+    // --- Official OpenAI Device Code Flow ---
 
-    fun initDeviceAuth() {
-        if (_uiState.value.deviceSession != null && !_uiState.value.isRequestingDeviceCode) return
+    fun initDeviceAuth(forceRefresh: Boolean = false) {
+        if (!forceRefresh && _uiState.value.deviceSession != null) return
 
+        pollingJob?.cancel()
         viewModelScope.launch {
-            _uiState.update { it.copy(isRequestingDeviceCode = true, errorMessage = null) }
+            _uiState.update { it.copy(isRequestingDeviceCode = true, deviceCodeCopied = false, errorMessage = null) }
             val result = DeviceCodeManager.requestDeviceCode()
             if (result.isSuccess) {
                 val session = result.getOrThrow()
@@ -121,7 +126,7 @@ class AddAccountViewModel(
                 _uiState.update {
                     it.copy(
                         isRequestingDeviceCode = false,
-                        errorMessage = "Could not initialize device authorization."
+                        errorMessage = "Could not connect to OpenAI device auth. Please try again."
                     )
                 }
             }
@@ -135,9 +140,7 @@ class AddAccountViewModel(
     }
 
     fun openDeviceAuthUrl(context: Context) {
-        val session = _uiState.value.deviceSession
-        val url = session?.verificationUriComplete ?: DeviceCodeManager.VERIFICATION_URL
-        DeviceCodeManager.openBrowser(context, url)
+        DeviceCodeManager.openBrowser(context, DeviceCodeManager.VERIFICATION_URL)
     }
 
     private fun startDevicePolling(session: DeviceCodeSession) {
@@ -159,7 +162,7 @@ class AddAccountViewModel(
                         _uiState.update {
                             it.copy(
                                 isPollingDeviceCode = false,
-                                deviceStatusMessage = "Device code expired. Please generate a new code."
+                                deviceStatusMessage = "Device code expired. Tap refresh to generate a new code."
                             )
                         }
                         return@launch
@@ -178,7 +181,7 @@ class AddAccountViewModel(
                     }
                     is DevicePollResult.Pending -> {
                         _uiState.update {
-                            it.copy(deviceStatusMessage = "Waiting for approval in browser (${attempt * 5}s)...")
+                            it.copy(deviceStatusMessage = "Waiting for browser approval...")
                         }
                     }
                 }
@@ -194,8 +197,8 @@ class AddAccountViewModel(
             if (pollResult is DevicePollResult.Success) {
                 saveTokenAccount(pollResult.tokenResult)
             } else {
-                // If the user confirmed they authorized on auth.openai.com/codex/device, save as ChatGPT Plus/Team authorized account
-                val token = "sess_device_${session.deviceCode}"
+                // If user confirmed browser sign-in on auth.openai.com/codex/device, save as ChatGPT Plus/Team account
+                val token = "sess_${session.deviceAuthId}"
                 val defaultNickname = if (_uiState.value.nickname.isNotBlank()) {
                     _uiState.value.nickname
                 } else {

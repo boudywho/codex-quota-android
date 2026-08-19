@@ -6,22 +6,23 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.security.SecureRandom
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 data class DeviceCodeSession(
-    val deviceCode: String,
+    val deviceAuthId: String,
     val userCode: String,
-    val verificationUri: String,
-    val verificationUriComplete: String?,
-    val expiresInSeconds: Int,
-    val intervalSeconds: Int,
+    val verificationUri: String = "https://auth.openai.com/codex/device",
+    val expiresInSeconds: Int = 900,
+    val intervalSeconds: Int = 5,
     val createdAtEpochMs: Long = System.currentTimeMillis()
 )
 
@@ -35,36 +36,25 @@ sealed class DevicePollResult {
 
 object DeviceCodeManager {
 
-    const val DEVICE_CODE_ENDPOINT = "https://auth.openai.com/oauth/device/code"
-    const val TOKEN_ENDPOINT = "https://auth.openai.com/oauth/token"
+    const val USER_CODE_ENDPOINT = "https://auth.openai.com/api/accounts/deviceauth/usercode"
+    const val TOKEN_ENDPOINT = "https://auth.openai.com/api/accounts/deviceauth/token"
     const val VERIFICATION_URL = "https://auth.openai.com/codex/device"
-    const val CLIENT_ID = "codex-cli"
+
+    private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
 
     private val httpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    private val random = SecureRandom()
-    private val CODE_CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ0123456789"
-
-    fun generateFallbackUserCode(): String {
-        val part1 = (1..4).map { CODE_CHARSET[random.nextInt(CODE_CHARSET.length)] }.joinToString("")
-        val part2 = (1..5).map { CODE_CHARSET[random.nextInt(CODE_CHARSET.length)] }.joinToString("")
-        return "$part1-$part2"
-    }
-
-    suspend fun requestDeviceCode(clientId: String = CLIENT_ID): Result<DeviceCodeSession> = withContext(Dispatchers.IO) {
+    suspend fun requestDeviceCode(): Result<DeviceCodeSession> = withContext(Dispatchers.IO) {
         try {
-            val formBody = FormBody.Builder()
-                .add("client_id", clientId)
-                .add("scope", "openid profile email model.request offline_access")
-                .build()
-
+            val emptyBody = "{}".toRequestBody(JSON_MEDIA_TYPE)
             val request = Request.Builder()
-                .url(DEVICE_CODE_ENDPOINT)
-                .post(formBody)
+                .url(USER_CODE_ENDPOINT)
+                .post(emptyBody)
                 .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", "Codex-CLI/0.1.0 (Android; Mobile)")
                 .build()
 
             val response = httpClient.newCall(request).execute()
@@ -72,74 +62,65 @@ object DeviceCodeManager {
 
             if (response.isSuccessful && body.isNotBlank()) {
                 val json = JSONObject(body)
-                val deviceCode = json.getString("device_code")
+                val deviceAuthId = json.getString("device_auth_id")
                 val userCode = json.getString("user_code")
-                val verificationUri = json.optString("verification_uri", VERIFICATION_URL)
-                val verificationUriComplete = json.optString("verification_uri_complete").takeIf { it.isNotEmpty() }
-                val expiresIn = json.optInt("expires_in", 900)
-                val interval = json.optInt("interval", 5)
+                val interval = json.optString("interval", "5").toIntOrNull() ?: 5
+                val expiresAtStr = json.optString("expires_at", "")
+
+                var expiresInSeconds = 900
+                if (expiresAtStr.isNotBlank()) {
+                    try {
+                        val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
+                            timeZone = TimeZone.getTimeZone("UTC")
+                        }
+                        val cleanDateStr = expiresAtStr.substringBefore('.').substringBefore('+').substringBefore('Z')
+                        val expiryDate = sdf.parse(cleanDateStr)
+                        if (expiryDate != null) {
+                            val diff = (expiryDate.time - System.currentTimeMillis()) / 1000L
+                            if (diff > 0) {
+                                expiresInSeconds = diff.toInt()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        expiresInSeconds = 900
+                    }
+                }
 
                 return@withContext Result.success(
                     DeviceCodeSession(
-                        deviceCode = deviceCode,
+                        deviceAuthId = deviceAuthId,
                         userCode = userCode,
-                        verificationUri = verificationUri,
-                        verificationUriComplete = verificationUriComplete,
-                        expiresInSeconds = expiresIn,
+                        verificationUri = VERIFICATION_URL,
+                        expiresInSeconds = expiresInSeconds,
                         intervalSeconds = interval
                     )
                 )
             } else {
-                // If endpoint requires specific enterprise client or returns html, provide standard deterministic session for codex/device
-                val userCode = generateFallbackUserCode()
-                val deviceCode = "dev_${System.currentTimeMillis()}_${(1000..9999).random()}"
-                return@withContext Result.success(
-                    DeviceCodeSession(
-                        deviceCode = deviceCode,
-                        userCode = userCode,
-                        verificationUri = VERIFICATION_URL,
-                        verificationUriComplete = "$VERIFICATION_URL?code=$userCode",
-                        expiresInSeconds = 900,
-                        intervalSeconds = 5
-                    )
-                )
+                return@withContext Result.failure(Exception("Failed to request device code: ${response.code} $body"))
             }
         } catch (e: Exception) {
-            val userCode = generateFallbackUserCode()
-            val deviceCode = "dev_${System.currentTimeMillis()}_${(1000..9999).random()}"
-            return@withContext Result.success(
-                DeviceCodeSession(
-                    deviceCode = deviceCode,
-                    userCode = userCode,
-                    verificationUri = VERIFICATION_URL,
-                    verificationUriComplete = "$VERIFICATION_URL?code=$userCode",
-                    expiresInSeconds = 900,
-                    intervalSeconds = 5
-                )
-            )
+            return@withContext Result.failure(e)
         }
     }
 
-    suspend fun pollDeviceToken(
-        session: DeviceCodeSession,
-        clientId: String = CLIENT_ID
-    ): DevicePollResult = withContext(Dispatchers.IO) {
+    suspend fun pollDeviceToken(session: DeviceCodeSession): DevicePollResult = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         if (now - session.createdAtEpochMs > session.expiresInSeconds * 1000L) {
             return@withContext DevicePollResult.Expired
         }
 
         try {
-            val formBody = FormBody.Builder()
-                .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-                .add("device_code", session.deviceCode)
-                .add("client_id", clientId)
-                .build()
+            val jsonPayload = JSONObject().apply {
+                put("device_auth_id", session.deviceAuthId)
+                put("user_code", session.userCode)
+            }.toString()
 
+            val requestBody = jsonPayload.toRequestBody(JSON_MEDIA_TYPE)
             val request = Request.Builder()
                 .url(TOKEN_ENDPOINT)
-                .post(formBody)
+                .post(requestBody)
                 .addHeader("Accept", "application/json")
+                .addHeader("User-Agent", "Codex-CLI/0.1.0 (Android; Mobile)")
                 .build()
 
             val response = httpClient.newCall(request).execute()
@@ -147,7 +128,11 @@ object DeviceCodeManager {
 
             if (response.isSuccessful && body.isNotBlank()) {
                 val json = JSONObject(body)
-                val accessToken = json.getString("access_token")
+                val accessToken = json.optString("access_token").takeIf { it.isNotEmpty() }
+                    ?: json.optString("token").takeIf { it.isNotEmpty() }
+                    ?: json.optString("session_token").takeIf { it.isNotEmpty() }
+                    ?: session.deviceAuthId
+
                 val refreshToken = json.optString("refresh_token").takeIf { it.isNotEmpty() }
                 val idToken = json.optString("id_token").takeIf { it.isNotEmpty() }
                 val expiresIn = json.optLong("expires_in", 86400L)
@@ -164,16 +149,9 @@ object DeviceCodeManager {
                 )
             }
 
-            if (body.isNotBlank()) {
-                val json = JSONObject(body)
-                val error = json.optString("error", "")
-                when (error) {
-                    "authorization_pending" -> return@withContext DevicePollResult.Pending
-                    "slow_down" -> return@withContext DevicePollResult.SlowDown
-                    "expired_token" -> return@withContext DevicePollResult.Expired
-                    "access_denied" -> return@withContext DevicePollResult.Error("Authorization was declined.")
-                    else -> return@withContext DevicePollResult.Pending
-                }
+            if (response.code == 403 || response.code == 400 || response.code == 404) {
+                // Authorization pending or user has not yet submitted in browser
+                return@withContext DevicePollResult.Pending
             }
 
             return@withContext DevicePollResult.Pending
@@ -189,7 +167,7 @@ object DeviceCodeManager {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            // Ignore
+            // Fallback
         }
     }
 

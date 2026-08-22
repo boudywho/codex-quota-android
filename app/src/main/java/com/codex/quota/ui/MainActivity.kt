@@ -28,8 +28,8 @@ import com.codex.quota.domain.model.UserPreferences
 import com.codex.quota.ui.navigation.AppNavigation
 import com.codex.quota.ui.navigation.Screen
 import com.codex.quota.ui.theme.CodexQuotaTheme
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
 
@@ -42,25 +42,21 @@ class MainActivity : ComponentActivity() {
         val app = application as CodexQuotaApplication
         handleIncomingIntent(intent, app)
 
-        // Read initial preferences synchronously to prevent any startDestination flashing on frame 0
-        val initialPreferences = runBlocking {
-            try {
-                app.preferencesRepository.getPreferences()
-            } catch (e: Exception) {
-                UserPreferences()
-            }
-        }
-
-        // Refresh on open if configured
-        lifecycleScope.launch {
-            if (initialPreferences.refreshOnAppOpen) {
-                app.repository.refreshAllAccounts()
-            }
-        }
-
         setContent {
-            val preferences by app.preferencesRepository.observePreferences()
-                .collectAsState(initial = initialPreferences)
+            val preferencesFlow = remember {
+                app.preferencesRepository.observePreferences()
+                    .catch { emit(UserPreferences()) }
+            }
+            val preferences by preferencesFlow.collectAsState(initial = null)
+
+            val loadedPreferences = preferences
+            if (loadedPreferences == null) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {}
+                return@setContent
+            }
 
             val permissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
@@ -73,15 +69,15 @@ class MainActivity : ComponentActivity() {
                         Manifest.permission.POST_NOTIFICATIONS
                     ) == PackageManager.PERMISSION_GRANTED
 
-                    if (!isGranted && (preferences.signedOutNotificationsEnabled || preferences.quotaAlertsEnabled)) {
+                    if (!isGranted && (loadedPreferences.signedOutNotificationsEnabled || loadedPreferences.quotaAlertsEnabled)) {
                         permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
                 }
             }
 
             CodexQuotaTheme(
-                themeMode = preferences.themeMode,
-                dynamicColor = preferences.dynamicColor
+                themeMode = loadedPreferences.themeMode,
+                dynamicColor = loadedPreferences.dynamicColor
             ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -91,7 +87,7 @@ class MainActivity : ComponentActivity() {
                     activeNavController = navController
 
                     val startDestination = remember {
-                        if (initialPreferences.hasCompletedOnboarding) {
+                        if (loadedPreferences.hasCompletedOnboarding) {
                             Screen.Dashboard.route
                         } else {
                             Screen.Onboarding.route
@@ -104,6 +100,19 @@ class MainActivity : ComponentActivity() {
                         startDestination = startDestination
                     )
                 }
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val app = application as CodexQuotaApplication
+        lifecycleScope.launch {
+            val preferences = runCatching {
+                app.preferencesRepository.getPreferences()
+            }.getOrNull()
+            if (preferences?.refreshOnAppOpen != false) {
+                app.repository.refreshAllAccounts()
             }
         }
     }

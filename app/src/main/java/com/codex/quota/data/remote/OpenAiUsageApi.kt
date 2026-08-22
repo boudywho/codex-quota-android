@@ -19,21 +19,38 @@ sealed class ApiResponse<out T> {
     data class NetworkError(val exception: Throwable) : ApiResponse<Nothing>()
 }
 
+interface OpenAiUsageService {
+    suspend fun checkAuthenticationAndFetchRateLimits(
+        apiKey: String,
+        organizationId: String? = null
+    ): ApiResponse<OpenAiModelsResponseDto>
+
+    suspend fun fetchChatGptSubscriberUsage(
+        accessToken: String,
+        chatgptAccountId: String? = null
+    ): ApiResponse<ChatGptWhamUsageDto>
+
+    suspend fun fetchChatGptAccountCheck(
+        accessToken: String,
+        chatgptAccountId: String? = null
+    ): ApiResponse<ChatGptAccountCheckData>
+}
+
 class OpenAiUsageApi(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
         .build()
-) {
+) : OpenAiUsageService {
     private val json = Json {
         ignoreUnknownKeys = true
         isLenient = true
     }
 
-    suspend fun checkAuthenticationAndFetchRateLimits(
+    override suspend fun checkAuthenticationAndFetchRateLimits(
         apiKey: String,
-        organizationId: String? = null
+        organizationId: String?
     ): ApiResponse<OpenAiModelsResponseDto> = withContext(Dispatchers.IO) {
         val requestBuilder = Request.Builder()
             .url("https://api.openai.com/v1/models")
@@ -78,9 +95,9 @@ class OpenAiUsageApi(
         }
     }
 
-    suspend fun fetchChatGptSubscriberUsage(
+    override suspend fun fetchChatGptSubscriberUsage(
         accessToken: String,
-        chatgptAccountId: String? = null
+        chatgptAccountId: String?
     ): ApiResponse<ChatGptWhamUsageDto> = withContext(Dispatchers.IO) {
         val cleanToken = accessToken.trim().removePrefix("Bearer ").removePrefix("bearer ")
         val requestBuilder = Request.Builder()
@@ -123,9 +140,9 @@ class OpenAiUsageApi(
         }
     }
 
-    suspend fun fetchChatGptAccountCheck(
+    override suspend fun fetchChatGptAccountCheck(
         accessToken: String,
-        chatgptAccountId: String? = null
+        chatgptAccountId: String?
     ): ApiResponse<ChatGptAccountCheckData> = withContext(Dispatchers.IO) {
         val cleanToken = accessToken.trim().removePrefix("Bearer ").removePrefix("bearer ")
         val requestBuilder = Request.Builder()

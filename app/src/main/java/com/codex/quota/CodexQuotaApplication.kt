@@ -52,7 +52,8 @@ class CodexQuotaApplication : Application() {
             usageSnapshotDao = database.usageSnapshotDao(),
             credentialStore = credentialStore,
             realDataSource = RealOpenAiDataSource(),
-            mockDataSource = MockOpenAiDataSource()
+            mockDataSource = MockOpenAiDataSource(),
+            refreshScope = applicationScope
         )
 
         preferencesRepository = UserPreferencesRepositoryImpl(dataStoreManager)

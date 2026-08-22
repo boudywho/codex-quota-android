@@ -37,7 +37,13 @@ data class UsageSnapshotEntity(
     val limitTokens: Long?,
     val remainingTokens: Long?,
     val resetTokensDuration: String?,
-    val errorMessage: String?
+    val errorMessage: String?,
+    val subscriptionRenewalEpochMs: Long?,
+    val subscriptionStartedAtEpochMs: Long?,
+    val billingPeriod: String?,
+    val accountCreatedEpochMs: Long?,
+    val willAutoRenew: Boolean?,
+    val hasActiveSubscription: Boolean?
 ) {
     fun toDomain(): CodexUsage {
         val rateLimitInfo = if (limitRequests != null || limitTokens != null) {
@@ -68,7 +74,13 @@ data class UsageSnapshotEntity(
             },
             fetchedAtEpochMs = fetchedAtEpochMs,
             rateLimitInfo = rateLimitInfo,
-            errorMessage = errorMessage
+            errorMessage = errorMessage,
+            subscriptionRenewalEpochMs = subscriptionRenewalEpochMs,
+            subscriptionStartedAtEpochMs = subscriptionStartedAtEpochMs,
+            billingPeriod = billingPeriod,
+            accountCreatedEpochMs = accountCreatedEpochMs,
+            willAutoRenew = willAutoRenew,
+            hasActiveSubscription = hasActiveSubscription
         )
     }
 
@@ -90,7 +102,13 @@ data class UsageSnapshotEntity(
                 limitTokens = usage.rateLimitInfo?.limitTokens,
                 remainingTokens = usage.rateLimitInfo?.remainingTokens,
                 resetTokensDuration = usage.rateLimitInfo?.resetTokensDuration,
-                errorMessage = usage.errorMessage
+                errorMessage = usage.errorMessage,
+                subscriptionRenewalEpochMs = usage.subscriptionRenewalEpochMs,
+                subscriptionStartedAtEpochMs = usage.subscriptionStartedAtEpochMs,
+                billingPeriod = usage.billingPeriod,
+                accountCreatedEpochMs = usage.accountCreatedEpochMs,
+                willAutoRenew = usage.willAutoRenew,
+                hasActiveSubscription = usage.hasActiveSubscription
             )
         }
     }

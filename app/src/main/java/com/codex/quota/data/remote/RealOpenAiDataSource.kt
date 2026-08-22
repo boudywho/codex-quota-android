@@ -5,9 +5,11 @@ import com.codex.quota.domain.model.AuthStatus
 import com.codex.quota.domain.model.CodexAccount
 import com.codex.quota.domain.model.CodexUsage
 import com.codex.quota.domain.model.RateLimitInfo
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 class RealOpenAiDataSource(
-    private val api: OpenAiUsageApi = OpenAiUsageApi()
+    private val api: OpenAiUsageService = OpenAiUsageApi()
 ) : CodexAccountDataSource {
 
     override suspend fun fetchUsage(
@@ -42,10 +44,17 @@ class RealOpenAiDataSource(
 
             // Fetch live ChatGPT subscriber usage from chatgpt.com/backend-api/wham/usage
             val chatgptAccountId = decoded.chatgptAccountId ?: account.organizationId
-            val whamResponse = api.fetchChatGptSubscriberUsage(apiKey, chatgptAccountId)
+            val (whamResponse, checkResponse) = coroutineScope {
+                val whamRequest = async {
+                    api.fetchChatGptSubscriberUsage(apiKey, chatgptAccountId)
+                }
+                val accountCheckRequest = async {
+                    api.fetchChatGptAccountCheck(apiKey, chatgptAccountId)
+                }
+                whamRequest.await() to accountCheckRequest.await()
+            }
 
-            // Also fetch OpenAI account & subscription entitlement details from accounts/check
-            val checkResponse = api.fetchChatGptAccountCheck(apiKey, chatgptAccountId)
+            // Supplement usage with account and subscription entitlement details.
             val checkData = if (checkResponse is ApiResponse.Success) checkResponse.data else null
 
             val subRenewalEpochMs = checkData?.subscriptionRenewsEpochMs ?: decoded.subscriptionExpiresAtEpochMs

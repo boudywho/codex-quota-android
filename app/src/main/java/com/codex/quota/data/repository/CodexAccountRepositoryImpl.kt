@@ -14,8 +14,20 @@ import com.codex.quota.domain.model.CodexUsage
 import com.codex.quota.domain.model.PlanType
 import com.codex.quota.domain.repository.CodexAccountRepository
 import com.codex.quota.security.CredentialStore
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import java.util.UUID
 
 class CodexAccountRepositoryImpl(
@@ -23,8 +35,12 @@ class CodexAccountRepositoryImpl(
     private val usageSnapshotDao: UsageSnapshotDao,
     private val credentialStore: CredentialStore,
     private val realDataSource: CodexAccountDataSource = RealOpenAiDataSource(),
-    private val mockDataSource: CodexAccountDataSource = MockOpenAiDataSource()
+    private val mockDataSource: CodexAccountDataSource = MockOpenAiDataSource(),
+    private val refreshScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) : CodexAccountRepository {
+
+    private val refreshMutex = Mutex()
+    private var activeRefresh: Deferred<Result<List<CodexUsage>>>? = null
 
     override fun observeAccounts(): Flow<List<AccountWithUsage>> {
         return combine(
@@ -192,15 +208,42 @@ class CodexAccountRepositoryImpl(
     }
 
     override suspend fun refreshAllAccounts(): Result<List<CodexUsage>> {
-        val accounts = accountDao.getAll()
-        val results = mutableListOf<CodexUsage>()
-        for (account in accounts) {
-            val domainAccount = account.toDomain()
-            val apiKey = credentialStore.getApiKey(domainAccount.id).orEmpty()
-            val refreshResult = refreshAccountInternal(domainAccount, apiKey)
-            refreshResult.getOrNull()?.let { results.add(it) }
+        val refresh = refreshMutex.withLock {
+            activeRefresh?.takeIf { it.isActive } ?: refreshScope.async {
+                refreshAllAccountsInternal()
+            }.also { activeRefresh = it }
         }
-        return Result.success(results)
+
+        return try {
+            refresh.await()
+        } finally {
+            refreshMutex.withLock {
+                if (activeRefresh === refresh && refresh.isCompleted) {
+                    activeRefresh = null
+                }
+            }
+        }
+    }
+
+    private suspend fun refreshAllAccountsInternal(): Result<List<CodexUsage>> = coroutineScope {
+        val accounts = accountDao.getAll()
+        val concurrencyLimit = Semaphore(MAX_CONCURRENT_ACCOUNT_REFRESHES)
+        val results = accounts.map { account ->
+            async {
+                concurrencyLimit.withPermit {
+                    try {
+                        val domainAccount = account.toDomain()
+                        val apiKey = credentialStore.getApiKey(domainAccount.id).orEmpty()
+                        refreshAccountInternal(domainAccount, apiKey).getOrNull()
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            }
+        }.awaitAll()
+        Result.success(results.filterNotNull())
     }
 
     override suspend fun clearAllData(): Result<Unit> {
@@ -208,5 +251,9 @@ class CodexAccountRepositoryImpl(
         usageSnapshotDao.deleteAll()
         accountDao.deleteAll()
         return Result.success(Unit)
+    }
+
+    private companion object {
+        const val MAX_CONCURRENT_ACCOUNT_REFRESHES = 4
     }
 }

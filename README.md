@@ -94,6 +94,7 @@ app/
 - Android SDK Platform 35
 
 ### Clone & Build
+
 ```bash
 # Clone the repository
 git clone https://github.com/boudywho/codex-quota-android.git
@@ -108,6 +109,59 @@ cd codex-quota-android
 # Output APK location:
 # app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Debug builds and unit tests do not require release signing credentials.
+
+### Release Signing
+
+Release APKs must be signed with the production certificate. Create an ignored
+`signing.properties` file in the repository root with this shape (use your real
+values locally; do not commit the file or keystore):
+
+```properties
+storeFile=path/to/release.keystore
+storePassword=your-store-password
+keyAlias=your-key-alias
+keyPassword=your-key-password
+```
+
+`storeFile` may be an absolute path or a path relative to the repository root.
+Each property can be overridden by its corresponding environment variable:
+
+| `signing.properties` | Environment variable |
+| :--- | :--- |
+| `storeFile` | `ANDROID_KEYSTORE_FILE` |
+| `storePassword` | `ANDROID_KEYSTORE_PASSWORD` |
+| `keyAlias` | `ANDROID_KEY_ALIAS` |
+| `keyPassword` | `ANDROID_KEY_PASSWORD` |
+
+Build a production APK with `./gradlew assembleRelease`. The build fails with a
+clear error if any signing value is missing or the configured keystore file is
+unavailable; it never falls back to the Android debug certificate.
+
+> **One-time signing migration:** APKs previously distributed by CI were signed
+> with the Android debug certificate. Android cannot upgrade those installations
+> with the new production certificate, so users of an old APK must uninstall it
+> once before installing the first production-signed release. After that migration,
+> future releases signed with the same production certificate can update each other.
+
+### CI and Releases
+
+Pull requests targeting `main` and pushes to `main` run unit tests, Android lint,
+and a debug APK build. To enable tagged releases, configure these GitHub Actions
+repository secrets:
+
+- `ANDROID_KEYSTORE_BASE64`: the production keystore file encoded as base64
+- `ANDROID_KEYSTORE_PASSWORD`: the keystore password
+- `ANDROID_KEY_ALIAS`: the signing key alias
+- `ANDROID_KEY_PASSWORD`: the signing key password
+
+To publish a release, first set `versionName` and `versionCode` in
+`app/build.gradle.kts`, then push a matching `v*` tag (for example, `v1.2.0` for
+`versionName = "1.2.0"`). The tag workflow verifies the match before handling
+signing material, decodes the keystore only into the runner's temporary directory,
+builds the signed release APK, and attaches `codex-quota-vX.X.X.apk` to the GitHub
+Release.
 
 ---
 

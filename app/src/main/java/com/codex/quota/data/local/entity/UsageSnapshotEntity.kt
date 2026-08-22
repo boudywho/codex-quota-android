@@ -28,6 +28,7 @@ data class UsageSnapshotEntity(
     val usedTokens: Long?,
     val totalLimitTokens: Long?,
     val remainingCredits: Double?,
+    val bankedResets: Int?,
     val resetAtEpochMs: Long?,
     val status: String,
     val fetchedAtEpochMs: Long,
@@ -66,6 +67,7 @@ data class UsageSnapshotEntity(
             usedTokens = usedTokens,
             totalLimitTokens = totalLimitTokens,
             remainingCredits = remainingCredits,
+            bankedResets = bankedResets,
             resetAtEpochMs = resetAtEpochMs,
             status = try {
                 AuthStatus.valueOf(status)
@@ -93,6 +95,7 @@ data class UsageSnapshotEntity(
                 usedTokens = usage.usedTokens,
                 totalLimitTokens = usage.totalLimitTokens,
                 remainingCredits = usage.remainingCredits,
+                bankedResets = usage.bankedResets,
                 resetAtEpochMs = usage.resetAtEpochMs,
                 status = usage.status.name,
                 fetchedAtEpochMs = usage.fetchedAtEpochMs,

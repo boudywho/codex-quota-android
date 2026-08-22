@@ -35,7 +35,8 @@ class UsageSnapshotEntityTest {
             billingPeriod = "Annual",
             accountCreatedEpochMs = 500L,
             willAutoRenew = false,
-            hasActiveSubscription = true
+            hasActiveSubscription = true,
+            bankedResets = 1
         )
 
         assertEquals(usage, UsageSnapshotEntity.fromDomain(usage).toDomain())

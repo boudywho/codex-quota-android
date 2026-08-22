@@ -17,7 +17,8 @@ data class CodexUsage(
     val billingPeriod: String? = null,
     val accountCreatedEpochMs: Long? = null,
     val willAutoRenew: Boolean? = null,
-    val hasActiveSubscription: Boolean? = null
+    val hasActiveSubscription: Boolean? = null,
+    val bankedResets: Int? = null
 ) {
     val isStale: Boolean
         get() = (System.currentTimeMillis() - fetchedAtEpochMs) > STALE_THRESHOLD_MS

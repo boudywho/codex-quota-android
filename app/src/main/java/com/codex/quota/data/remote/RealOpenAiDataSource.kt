@@ -114,7 +114,8 @@ class RealOpenAiDataSource(
                         billingPeriod = billingPeriod,
                         accountCreatedEpochMs = accountCreatedEpochMs,
                         willAutoRenew = willAutoRenew,
-                        hasActiveSubscription = hasActiveSubscription
+                        hasActiveSubscription = hasActiveSubscription,
+                        bankedResets = whamDto.rateLimitResetCredits?.availableCount
                     )
                     return Result.success(usage)
                 }

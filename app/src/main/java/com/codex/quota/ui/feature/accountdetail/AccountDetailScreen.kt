@@ -370,6 +370,14 @@ fun AccountDetailScreen(
                                     )
                                 }
                             }
+
+                            if (usage?.bankedResets != null) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                DetailMetricRow(
+                                    label = "Banked usage resets",
+                                    value = "${usage.bankedResets} available"
+                                )
+                            }
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package com.codex.quota.data.remote
 
 import com.codex.quota.data.remote.dto.ChatGptAccountCheckData
+import com.codex.quota.data.remote.dto.ChatGptResetCreditsDto
 import com.codex.quota.data.remote.dto.ChatGptWhamUsageDto
 import com.codex.quota.data.remote.dto.OpenAiModelsResponseDto
 import com.codex.quota.data.remote.dto.ParsedRateLimits
@@ -34,6 +35,11 @@ interface OpenAiUsageService {
         accessToken: String,
         chatgptAccountId: String? = null
     ): ApiResponse<ChatGptAccountCheckData>
+
+    suspend fun fetchChatGptResetCredits(
+        accessToken: String,
+        chatgptAccountId: String? = null
+    ): ApiResponse<ChatGptResetCreditsDto>
 }
 
 class OpenAiUsageApi(
@@ -170,6 +176,47 @@ class OpenAiUsageApi(
                 }
             } else {
                 ApiResponse.HttpError(code, "Failed to fetch account check ($code)", rateLimits)
+            }
+        } catch (e: IOException) {
+            ApiResponse.NetworkError(e)
+        } catch (e: Exception) {
+            ApiResponse.NetworkError(e)
+        }
+    }
+
+    override suspend fun fetchChatGptResetCredits(
+        accessToken: String,
+        chatgptAccountId: String?
+    ): ApiResponse<ChatGptResetCreditsDto> = withContext(Dispatchers.IO) {
+        val cleanToken = accessToken.trim().removePrefix("Bearer ").removePrefix("bearer ")
+        val requestBuilder = Request.Builder()
+            .url("https://chatgpt.com/backend-api/wham/rate-limit-reset-credits")
+            .header("Authorization", "Bearer $cleanToken")
+            .header("User-Agent", "CodexQuota-Android/1.0 (Android; Mobile)")
+            .header("Accept", "application/json")
+
+        if (!chatgptAccountId.isNullOrBlank()) {
+            requestBuilder.header("ChatGPT-Account-ID", chatgptAccountId)
+        }
+
+        try {
+            val response: Response = client.newCall(requestBuilder.build()).execute()
+            val rateLimits = ParsedRateLimits.fromHeaders(response.headers)
+            val code = response.code
+            val bodyString = response.body?.string().orEmpty()
+
+            if (response.isSuccessful && bodyString.isNotBlank()) {
+                try {
+                    ApiResponse.Success(
+                        json.decodeFromString<ChatGptResetCreditsDto>(bodyString),
+                        rateLimits,
+                        code
+                    )
+                } catch (e: Exception) {
+                    ApiResponse.NetworkError(e)
+                }
+            } else {
+                ApiResponse.HttpError(code, "Failed to fetch reset-credit details ($code)", rateLimits)
             }
         } catch (e: IOException) {
             ApiResponse.NetworkError(e)

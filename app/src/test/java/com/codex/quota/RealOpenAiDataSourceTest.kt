@@ -7,6 +7,8 @@ import com.codex.quota.data.remote.OpenAiUsageService
 import com.codex.quota.data.remote.RealOpenAiDataSource
 import com.codex.quota.data.remote.dto.ChatGptAccountCheckData
 import com.codex.quota.data.remote.dto.ChatGptRateLimitResetCreditsDto
+import com.codex.quota.data.remote.dto.ChatGptResetCreditDto
+import com.codex.quota.data.remote.dto.ChatGptResetCreditsDto
 import com.codex.quota.data.remote.dto.ChatGptWhamUsageDto
 import com.codex.quota.data.remote.dto.OpenAiModelsResponseDto
 import com.codex.quota.data.remote.dto.ParsedRateLimits
@@ -26,6 +28,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RealOpenAiDataSourceTest {
@@ -56,6 +60,7 @@ class RealOpenAiDataSourceTest {
 
             assertTrue(api.whamStarted.isCompleted)
             assertTrue(api.accountCheckStarted.isCompleted)
+            assertTrue(api.resetCreditsStarted.isCompleted)
             api.releaseResponses.complete(Unit)
 
             val usage = fetch.await().getOrThrow()
@@ -73,7 +78,7 @@ class RealOpenAiDataSourceTest {
     }
 
     @Test
-    fun successfulSubscriberUsage_mapsBankedResetsFromWhamDto() = runTest {
+    fun successfulSubscriberUsage_mapsBankedCountAndEarliestAvailableExpiry() = runTest {
         mockkObject(JwtTokenParser)
         every { JwtTokenParser.parseToken(any()) } returns DecodedTokenInfo(
             email = "person@example.com",
@@ -89,7 +94,22 @@ class RealOpenAiDataSourceTest {
         try {
             val api = GatedSubscriberApi(
                 apiRenewal = 8_000_000_000_000L,
-                bankedResets = 1
+                bankedResets = 3,
+                resetCredits = listOf(
+                    ChatGptResetCreditDto(
+                        status = "available",
+                        expiresAt = "2026-09-20T22:11:08.943280Z"
+                    ),
+                    ChatGptResetCreditDto(
+                        status = "available",
+                        expiresAt = "2026-09-19T10:00:00Z"
+                    ),
+                    ChatGptResetCreditDto(
+                        status = "used",
+                        expiresAt = "2026-09-01T10:00:00Z"
+                    ),
+                    ChatGptResetCreditDto(status = "available", expiresAt = "not-a-date")
+                )
             )
             val fetch = async {
                 RealOpenAiDataSource(api).fetchUsage(account(), "subscriber.jwt.token")
@@ -98,9 +118,50 @@ class RealOpenAiDataSourceTest {
 
             assertTrue(api.whamStarted.isCompleted)
             assertTrue(api.accountCheckStarted.isCompleted)
+            assertTrue(api.resetCreditsStarted.isCompleted)
             api.releaseResponses.complete(Unit)
 
-            assertEquals(1, fetch.await().getOrThrow().bankedResets)
+            val usage = fetch.await().getOrThrow()
+            assertEquals(3, usage.bankedResets)
+            assertEquals(
+                Instant.parse("2026-09-19T10:00:00Z").toEpochMilli(),
+                usage.bankedResetExpiresAtEpochMs
+            )
+        } finally {
+            unmockkObject(JwtTokenParser)
+        }
+    }
+
+    @Test
+    fun resetCreditDetailsFailure_keepsSuccessfulUsageAndBankedCount() = runTest {
+        mockkObject(JwtTokenParser)
+        every { JwtTokenParser.parseToken(any()) } returns DecodedTokenInfo(
+            email = null,
+            userId = "user-1",
+            organizationId = null,
+            chatgptAccountId = "chatgpt-account-1",
+            planType = PlanType.PLUS,
+            expiresAtEpochMs = Long.MAX_VALUE,
+            subscriptionExpiresAtEpochMs = null,
+            subscriptionStartedAtEpochMs = null
+        )
+
+        try {
+            val api = GatedSubscriberApi(
+                apiRenewal = 8_000_000_000_000L,
+                bankedResets = 2,
+                throwResetCreditsFailure = true
+            )
+            val fetch = async {
+                RealOpenAiDataSource(api).fetchUsage(account(), "subscriber.jwt.token")
+            }
+            runCurrent()
+            api.releaseResponses.complete(Unit)
+
+            val result = fetch.await()
+            assertTrue(result.isSuccess)
+            assertEquals(2, result.getOrThrow().bankedResets)
+            assertEquals(null, result.getOrThrow().bankedResetExpiresAtEpochMs)
         } finally {
             unmockkObject(JwtTokenParser)
         }
@@ -113,6 +174,20 @@ class RealOpenAiDataSourceTest {
         )
 
         assertEquals(1, dto.rateLimitResetCredits?.availableCount)
+    }
+
+    @Test
+    fun resetCreditsDto_decodesTypedExpiryDetailsAndIgnoresUnknownFields() {
+        val dto = ignoreUnknownKeysJson.decodeFromString<ChatGptResetCreditsDto>(
+            """{"available_count":2,"credits":[{"status":"available","reset_type":"weekly","granted_at":"2026-08-20T10:00:00Z","expires_at":"2026-09-20T22:11:08.943280Z","title":"Banked reset","unknown_credit_field":42}],"unknown_root":true}"""
+        )
+
+        assertEquals(2, dto.availableCount)
+        assertEquals("available", dto.credits.single().status)
+        assertEquals("weekly", dto.credits.single().resetType)
+        assertEquals("2026-08-20T10:00:00Z", dto.credits.single().grantedAt)
+        assertEquals("2026-09-20T22:11:08.943280Z", dto.credits.single().expiresAt)
+        assertEquals("Banked reset", dto.credits.single().title)
     }
 
     private fun account() = CodexAccount(
@@ -131,10 +206,13 @@ class RealOpenAiDataSourceTest {
 
     private class GatedSubscriberApi(
         private val apiRenewal: Long,
-        private val bankedResets: Int? = null
+        private val bankedResets: Int? = null,
+        private val resetCredits: List<ChatGptResetCreditDto> = emptyList(),
+        private val throwResetCreditsFailure: Boolean = false
     ) : OpenAiUsageService {
         val whamStarted = CompletableDeferred<Unit>()
         val accountCheckStarted = CompletableDeferred<Unit>()
+        val resetCreditsStarted = CompletableDeferred<Unit>()
         val releaseResponses = CompletableDeferred<Unit>()
 
         override suspend fun fetchChatGptSubscriberUsage(
@@ -173,6 +251,23 @@ class RealOpenAiDataSourceTest {
                     willRenew = false,
                     hasActiveSubscription = true,
                     planType = "plus"
+                ),
+                rateLimits = emptyRateLimits(),
+                httpCode = 200
+            )
+        }
+
+        override suspend fun fetchChatGptResetCredits(
+            accessToken: String,
+            chatgptAccountId: String?
+        ): ApiResponse<ChatGptResetCreditsDto> {
+            resetCreditsStarted.complete(Unit)
+            releaseResponses.await()
+            if (throwResetCreditsFailure) throw IOException("details unavailable")
+            return ApiResponse.Success(
+                data = ChatGptResetCreditsDto(
+                    availableCount = resetCredits.size,
+                    credits = resetCredits
                 ),
                 rateLimits = emptyRateLimits(),
                 httpCode = 200

@@ -60,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -75,6 +76,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,6 +89,7 @@ fun AccountDetailScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val uiMessage by viewModel.uiMessage.collectAsState()
     val accountDeleted by viewModel.accountDeleted.collectAsState()
+    val appLocale = LocalConfiguration.current.locales[0]
 
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -372,10 +375,25 @@ fun AccountDetailScreen(
                             }
 
                             if (usage?.bankedResets != null) {
+                                val expiry = usage.bankedResetExpiresAtEpochMs
+                                    ?.takeIf { usage.bankedResets > 0 }
+                                    ?.let { epochMs ->
+                                        SimpleDateFormat("HH:mm 'on' dd MMM yyyy", appLocale)
+                                            .apply { timeZone = TimeZone.getDefault() }
+                                            .format(Date(epochMs))
+                                    }
+                                val expiryPrefix = if (usage.bankedResets > 1) {
+                                    "Next expiry"
+                                } else {
+                                    "Expires"
+                                }
                                 Spacer(modifier = Modifier.height(12.dp))
                                 DetailMetricRow(
                                     label = "Banked usage resets",
-                                    value = "${usage.bankedResets} available"
+                                    value = buildString {
+                                        append("${usage.bankedResets} available")
+                                        if (expiry != null) append("\n$expiryPrefix $expiry")
+                                    }
                                 )
                             }
                         }

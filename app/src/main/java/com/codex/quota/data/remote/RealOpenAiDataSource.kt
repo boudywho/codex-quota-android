@@ -5,8 +5,10 @@ import com.codex.quota.domain.model.AuthStatus
 import com.codex.quota.domain.model.CodexAccount
 import com.codex.quota.domain.model.CodexUsage
 import com.codex.quota.domain.model.RateLimitInfo
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import java.time.Instant
 
 class RealOpenAiDataSource(
     private val api: OpenAiUsageService = OpenAiUsageApi()
@@ -44,14 +46,27 @@ class RealOpenAiDataSource(
 
             // Fetch live ChatGPT subscriber usage from chatgpt.com/backend-api/wham/usage
             val chatgptAccountId = decoded.chatgptAccountId ?: account.organizationId
-            val (whamResponse, checkResponse) = coroutineScope {
+            val (whamResponse, checkResponse, resetCreditsResponse) = coroutineScope {
                 val whamRequest = async {
                     api.fetchChatGptSubscriberUsage(apiKey, chatgptAccountId)
                 }
                 val accountCheckRequest = async {
                     api.fetchChatGptAccountCheck(apiKey, chatgptAccountId)
                 }
-                whamRequest.await() to accountCheckRequest.await()
+                val resetCreditsRequest = async {
+                    try {
+                        api.fetchChatGptResetCredits(apiKey, chatgptAccountId)
+                    } catch (exception: CancellationException) {
+                        throw exception
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                Triple(
+                    whamRequest.await(),
+                    accountCheckRequest.await(),
+                    resetCreditsRequest.await()
+                )
             }
 
             // Supplement usage with account and subscription entitlement details.
@@ -96,6 +111,19 @@ class RealOpenAiDataSource(
                     )
 
                     val creditsBalance = whamDto.credits?.balance?.toDoubleOrNull()
+                    val bankedResetExpiresAtEpochMs = if (resetCreditsResponse is ApiResponse.Success) {
+                        resetCreditsResponse.data.credits
+                            .asSequence()
+                            .filter { it.status == "available" }
+                            .mapNotNull { credit ->
+                                credit.expiresAt?.let { expiresAt ->
+                                    runCatching { Instant.parse(expiresAt).toEpochMilli() }.getOrNull()
+                                }
+                            }
+                            .minOrNull()
+                    } else {
+                        null
+                    }
 
                     val usage = CodexUsage(
                         accountId = account.id,
@@ -115,7 +143,8 @@ class RealOpenAiDataSource(
                         accountCreatedEpochMs = accountCreatedEpochMs,
                         willAutoRenew = willAutoRenew,
                         hasActiveSubscription = hasActiveSubscription,
-                        bankedResets = whamDto.rateLimitResetCredits?.availableCount
+                        bankedResets = whamDto.rateLimitResetCredits?.availableCount,
+                        bankedResetExpiresAtEpochMs = bankedResetExpiresAtEpochMs
                     )
                     return Result.success(usage)
                 }
